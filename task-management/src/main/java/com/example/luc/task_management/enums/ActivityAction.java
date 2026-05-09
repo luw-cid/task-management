@@ -1,0 +1,20 @@
+package com.example.luc.task_management.enums;
+
+public enum ActivityAction {
+    TASK_CREATED,
+    TASK_UPDATED,
+    TASK_DELETED,
+    TASK_MOVED,
+    TASK_ASSIGNED,
+    TASK_UNASSIGNED,
+    STATUS_CHANGED,
+    PRIORITY_CHANGED,
+    DEADLINE_CHANGED,
+    COMMENT_ADDED,
+    COMMENT_UPDATED,
+    COMMENT_DELETED,
+    SUBTASK_CREATED,
+    SUBTASK_COMPLETED,
+    MEMBER_INVITED,
+    MEMBER_REMOVED
+}
