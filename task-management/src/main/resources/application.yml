@@ -1,0 +1,37 @@
+#spring.application.name=task-management
+spring:
+  application:
+    name: task-management
+  datasource:
+    url: jdbc:mysql://localhost:3306/task_management?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+#    password: ${DB_PASSWORD:''}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: TaskManagerHikariPool
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000        # 5 minute
+      connection-timeout: 20000   # 20s
+      max-lifetime: 1200000       # 20 minute
+      connection-test-query: SELECT 1
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          batch_size: 20
+          order_inserts: true
+          order_updates: true
+
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+    baseline-on-migration: true
+    validate-on-migration: true
