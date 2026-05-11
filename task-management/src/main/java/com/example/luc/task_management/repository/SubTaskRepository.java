@@ -11,12 +11,12 @@ import java.util.Optional;
 
 @Repository
 public interface SubTaskRepository extends JpaRepository<Subtask, Long> {
-    List<Subtask> findAllByTaskIdOrderByPositionAsc(Long taskId);
+    List<Subtask> findByTaskIdOrderByPositionAsc(Long taskId);
 
     Optional<Subtask> findByIdAndTaskId(Long id, Long taskId);
 
     long countByTaskId(Long taskId);
-    long countByTaskiIdAndCompletedTrue(Long taskId);
+    long countByTaskIdAndIsCompletedTrue(Long taskId);
 
     // Lấy vị trí lớn nhất
     @Query("SELECT MAX(s.position) FROM Subtask s WHERE s.task.id = :taskId")

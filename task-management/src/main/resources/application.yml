@@ -35,3 +35,9 @@ spring:
     locations: classpath:db/migration
     baseline-on-migration: true
     validate-on-migration: true
+app:
+  jwt:
+    # HS256: tối thiểu 32 byte. 64 ký tự hex = 32 byte (dev; prod dùng biến môi trường).
+    secret: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    access-token-expiration: 86400000     # 1 ngày
+    refresh-token-expiration: 604800000   # 7 ngày

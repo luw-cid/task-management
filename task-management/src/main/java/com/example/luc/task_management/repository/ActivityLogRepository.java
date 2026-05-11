@@ -13,12 +13,12 @@ import java.util.List;
 @Repository
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> {
     // History by task
-    List<ActivityLog> findAllByTaskIdOrderByCreateAtDesc(Long taskId);
+    List<ActivityLog> findAllByTaskIdOrderByCreatedAtDesc(Long taskId);
 
     // History by board (pagination)
-    List<Board> findAllByBoardIdOrderByCreateAtDesc(Long boardId, Pageable pageable);
+    List<ActivityLog> findAllByBoardIdOrderByCreatedAtDesc(Long boardId, Pageable pageable);
 
     // History by board and action
-    List<Board> findAllByBoardIdAndActionOrderByCreateAtDesc(Long boardId, ActivityAction action);
+    List<ActivityLog> findAllByBoardIdAndActionOrderByCreatedAtDesc(Long boardId, ActivityAction action);
 
 }

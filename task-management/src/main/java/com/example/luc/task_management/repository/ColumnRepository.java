@@ -19,13 +19,13 @@ public interface ColumnRepository extends JpaRepository<ColumnEntity, Long> {
     boolean existsByBoardIdAndName(Long boardId, String name);
 
     // Lấy vị trí lớn nhất trong board để thêm cột mới vào cuối
-    @Query("SELECT MAX(c.position) FROM Column c WHERE c.board.id = :boardId")
+    @Query("SELECT MAX(c.position) FROM ColumnEntity c WHERE c.board.id = :boardId")
     Optional<Integer> findMaxPositionByBoardId(@Param("boardId") Long boardId);
 
     // Cập nhật vị trí hàng loạt
     @Modifying
     @Query("""
-        UPDATE Column c SET c.position = :position
+        UPDATE ColumnEntity c SET c.position = :position
         WHERE c.id = :id
     """)
     void updatePosition(

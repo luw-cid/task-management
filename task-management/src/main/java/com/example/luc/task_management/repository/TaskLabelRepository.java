@@ -11,11 +11,10 @@ import org.springframework.stereotype.Repository;
 public interface TaskLabelRepository extends JpaRepository<TaskLabel, Long> {
 
     @Modifying
-    @Query(value= "SELECT FROM task_lables WHERE taskId= :taskId AND label_id= :labelId", nativeQuery = true)
-    void removeTaskLabel(
-        @Param("taskId") Long taskId,
-        @Param("labelId") Long labelId
-    );
+    @Query(value = "DELETE FROM task_labels WHERE task_id = :taskId AND label_id = :labelId",
+            nativeQuery = true
+    )
+    void removeTaskLabel(@Param("taskId") Long taskId, @Param("labelId") Long labelId);
 
     @Query(value = "SELECT COUNT(*) > 0 FROM task_labels WHERE task_id = :taskId AND label_id = :labelId",
             nativeQuery = true)

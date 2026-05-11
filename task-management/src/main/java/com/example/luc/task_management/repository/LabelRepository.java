@@ -14,5 +14,5 @@ public interface LabelRepository extends JpaRepository<Label, Long> {
 
     Optional<Label> findByIdAndBoardId(Long id, Long boardId);
 
-    boolean existsByBoardIdAndName(Long id, String name);
+    boolean existsByBoardIdAndName(Long boardId, String name);
 }
