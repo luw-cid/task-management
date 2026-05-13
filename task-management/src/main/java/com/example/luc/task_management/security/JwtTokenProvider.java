@@ -8,6 +8,7 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -30,6 +31,7 @@ public class JwtTokenProvider {
     @Value("${app.jwt.access-token-expiration}")
     private long accessTokenExpiration;
 
+    @Getter
     @Value("${app.jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
 
@@ -54,9 +56,9 @@ public class JwtTokenProvider {
         return parseClaims(token).getSubject();
     }
 
-    public long getRefreshTokenExpiration() {
-        return refreshTokenExpiration;
-    }
+//    public long getRefreshTokenExpiration() {
+//        return refreshTokenExpiration;
+//    }
 
     public boolean validateToken(String token) {
         try {
