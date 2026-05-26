@@ -55,7 +55,7 @@ public class TaskResponse {
                 .reporterName(task.getReporter().getFullName())
                 .subtaskTotal(task.getSubtasks().size())
                 .subtaskCompleted((int) task.getSubtasks().stream()
-                        .filter(s -> s.isCompleted()).count())
+                        .filter(s -> s.getIsCompleted()).count())
                 .completionPercentage(task.getCompletionPercentage())
                 .deadline(task.getDeadline())
                 .createdAt(task.getCreatedAt())
