@@ -1,4 +1,4 @@
-package com.example.luc.task_management.pattern.observer;
+package com.example.luc.task_management.pattern.observer.task;
 
 import com.example.luc.task_management.entity.Task;
 
