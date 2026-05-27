@@ -1,7 +1,7 @@
 package com.example.luc.task_management.controller;
 
-import com.example.luc.task_management.dto.request.CreateCommentRequest;
-import com.example.luc.task_management.dto.request.UpdateCommentRequest;
+import com.example.luc.task_management.dto.request.comment.CreateCommentRequest;
+import com.example.luc.task_management.dto.request.comment.UpdateCommentRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.CommentResponse;
 import com.example.luc.task_management.service.CommentServer;

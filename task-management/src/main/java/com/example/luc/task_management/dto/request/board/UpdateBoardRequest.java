@@ -1,4 +1,4 @@
-package com.example.luc.task_management.dto.request;
+package com.example.luc.task_management.dto.request.board;
 
 import jakarta.validation.constraints.Size;
 import lombok.Getter;

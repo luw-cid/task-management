@@ -1,8 +1,8 @@
 package com.example.luc.task_management.service;
 
-import com.example.luc.task_management.dto.request.CreateBoardRequest;
-import com.example.luc.task_management.dto.request.InviteMemberRequest;
-import com.example.luc.task_management.dto.request.UpdateBoardRequest;
+import com.example.luc.task_management.dto.request.board.CreateBoardRequest;
+import com.example.luc.task_management.dto.request.board.InviteMemberRequest;
+import com.example.luc.task_management.dto.request.board.UpdateBoardRequest;
 import com.example.luc.task_management.dto.response.BoardMemberResponse;
 import com.example.luc.task_management.dto.response.BoardResponse;
 import com.example.luc.task_management.entity.Board;
@@ -18,7 +18,6 @@ import com.example.luc.task_management.repository.ColumnRepository;
 import com.example.luc.task_management.repository.UserRepository;
 import com.example.luc.task_management.util.SecurityUtils;
 //import jakarta.transaction.Transactional;
-import jakarta.persistence.Column;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

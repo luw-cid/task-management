@@ -1,4 +1,4 @@
-package com.example.luc.task_management.dto.request;
+package com.example.luc.task_management.dto.request.task;
 
 import lombok.Getter;
 import lombok.Setter;

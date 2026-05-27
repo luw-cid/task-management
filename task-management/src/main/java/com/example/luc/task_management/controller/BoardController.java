@@ -1,13 +1,12 @@
 package com.example.luc.task_management.controller;
 
-import com.example.luc.task_management.dto.request.CreateBoardRequest;
-import com.example.luc.task_management.dto.request.InviteMemberRequest;
-import com.example.luc.task_management.dto.request.UpdateBoardRequest;
+import com.example.luc.task_management.dto.request.board.CreateBoardRequest;
+import com.example.luc.task_management.dto.request.board.InviteMemberRequest;
+import com.example.luc.task_management.dto.request.board.UpdateBoardRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.BoardMemberResponse;
 import com.example.luc.task_management.dto.response.BoardResponse;
 import com.example.luc.task_management.service.BoardService;
-import jakarta.validation.Path;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

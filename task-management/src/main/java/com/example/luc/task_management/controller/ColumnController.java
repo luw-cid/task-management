@@ -1,15 +1,13 @@
 package com.example.luc.task_management.controller;
 
-import com.example.luc.task_management.dto.request.CreateColumnRequest;
-import com.example.luc.task_management.dto.request.UpdateColumnRequest;
+import com.example.luc.task_management.dto.request.column.CreateColumnRequest;
+import com.example.luc.task_management.dto.request.column.UpdateColumnRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.ColumnResponse;
 import com.example.luc.task_management.service.ColumnService;
-import jakarta.persistence.Column;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

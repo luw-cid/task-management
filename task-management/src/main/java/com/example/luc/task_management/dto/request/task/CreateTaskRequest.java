@@ -1,4 +1,4 @@
-package com.example.luc.task_management.dto.request;
+package com.example.luc.task_management.dto.request.task;
 
 import com.example.luc.task_management.enums.TaskType;
 import jakarta.validation.constraints.NotBlank;

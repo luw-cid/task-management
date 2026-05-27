@@ -1,12 +1,11 @@
 package com.example.luc.task_management.controller;
 
-import com.example.luc.task_management.dto.request.AssignTaskRequest;
-import com.example.luc.task_management.dto.request.CreateTaskRequest;
-import com.example.luc.task_management.dto.request.MoveTaskRequest;
-import com.example.luc.task_management.dto.request.UpdateTaskRequest;
+import com.example.luc.task_management.dto.request.task.AssignTaskRequest;
+import com.example.luc.task_management.dto.request.task.CreateTaskRequest;
+import com.example.luc.task_management.dto.request.task.MoveTaskRequest;
+import com.example.luc.task_management.dto.request.task.UpdateTaskRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.TaskResponse;
-import com.example.luc.task_management.entity.Task;
 import com.example.luc.task_management.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.example.luc.task_management.dto.request;
+package com.example.luc.task_management.dto.request.board;
 
 
 import com.example.luc.task_management.enums.BoardRole;

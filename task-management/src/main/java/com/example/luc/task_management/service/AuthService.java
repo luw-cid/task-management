@@ -1,7 +1,7 @@
 package com.example.luc.task_management.service;
 
-import com.example.luc.task_management.dto.request.LoginRequest;
-import com.example.luc.task_management.dto.request.RegisterRequest;
+import com.example.luc.task_management.dto.request.auth.LoginRequest;
+import com.example.luc.task_management.dto.request.auth.RegisterRequest;
 import com.example.luc.task_management.dto.response.AuthResponse;
 import com.example.luc.task_management.entity.RefreshToken;
 import com.example.luc.task_management.entity.User;

@@ -1,7 +1,7 @@
 package com.example.luc.task_management.service;
 
-import com.example.luc.task_management.dto.request.CreateCommentRequest;
-import com.example.luc.task_management.dto.request.UpdateCommentRequest;
+import com.example.luc.task_management.dto.request.comment.CreateCommentRequest;
+import com.example.luc.task_management.dto.request.comment.UpdateCommentRequest;
 import com.example.luc.task_management.dto.response.CommentResponse;
 import com.example.luc.task_management.entity.Comment;
 import com.example.luc.task_management.entity.Task;
@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 @Slf4j

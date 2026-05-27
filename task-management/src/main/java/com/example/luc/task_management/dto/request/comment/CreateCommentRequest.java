@@ -1,4 +1,4 @@
-package com.example.luc.task_management.dto.request;
+package com.example.luc.task_management.dto.request.comment;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

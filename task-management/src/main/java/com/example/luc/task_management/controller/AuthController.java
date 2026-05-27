@@ -1,7 +1,7 @@
 package com.example.luc.task_management.controller;
 
-import com.example.luc.task_management.dto.request.LoginRequest;
-import com.example.luc.task_management.dto.request.RegisterRequest;
+import com.example.luc.task_management.dto.request.auth.LoginRequest;
+import com.example.luc.task_management.dto.request.auth.RegisterRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.AuthResponse;
 import com.example.luc.task_management.service.AuthService;

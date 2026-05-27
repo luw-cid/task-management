@@ -1,8 +1,8 @@
 package com.example.luc.task_management.service;
 
 
-import com.example.luc.task_management.dto.request.CreateColumnRequest;
-import com.example.luc.task_management.dto.request.UpdateColumnRequest;
+import com.example.luc.task_management.dto.request.column.CreateColumnRequest;
+import com.example.luc.task_management.dto.request.column.UpdateColumnRequest;
 import com.example.luc.task_management.dto.response.ColumnResponse;
 import com.example.luc.task_management.entity.Board;
 import com.example.luc.task_management.entity.ColumnEntity;
@@ -19,7 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.Security;
 import java.util.List;
 import java.util.stream.Collectors;
 
