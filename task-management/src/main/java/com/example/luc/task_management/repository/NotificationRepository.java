@@ -15,6 +15,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     // get all user's notification (pagination)
     Page<Notification> findAllByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+    long countByUserIdAndIsReadFalse(Long userId);
+
     // Mark all as read
     @Modifying
     @Query("""
@@ -25,4 +27,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             @Param("id") Long id,
             @Param("userId") Long userId
     );
+
+    @Modifying
+    @Query("""
+        UPDATE Notification n SET n.isRead = true
+        WHERE n.user.id = :userId
+""")
+    void markAllAsReadByUserId(@Param("userId") Long id);
 }

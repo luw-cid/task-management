@@ -4,7 +4,7 @@ import com.example.luc.task_management.dto.request.comment.CreateCommentRequest;
 import com.example.luc.task_management.dto.request.comment.UpdateCommentRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.CommentResponse;
-import com.example.luc.task_management.service.CommentServer;
+import com.example.luc.task_management.service.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +17,7 @@ import java.util.List;
 @RequestMapping("/api/boards/{boardId}/tasks/{taskId}/comments")
 public class CommentController {
 
-    private final CommentServer commentServer;
+    private final CommentService commentServer;
 
     @PostMapping
     public ResponseEntity<ApiResponse<CommentResponse>> addComment(
@@ -42,7 +42,7 @@ public class CommentController {
             @PathVariable Long taskId,
             @PathVariable Long commentId,
             @Valid @RequestBody UpdateCommentRequest request ) {
-        return ResponseEntity.ok(ApiResponse.success("Comment update successfully", commentServer.updateComment(boardId, taskId, commentId, request)));
+        return ResponseEntity.ok(ApiResponse.success("Comment updated successfully", commentServer.updateComment(boardId, taskId, commentId, request)));
     }
 
     @DeleteMapping("/{commentId}")
