@@ -42,6 +42,8 @@ interface BoardColumn {
   isDone?: boolean;
 }
 
+type DraggedTask = { taskId: string; sourceColumnId: string };
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const AV_COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899"];
@@ -50,6 +52,36 @@ function avatarColor(name: string) {
 }
 function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+}
+
+function moveTaskBetweenColumns(
+  columns: BoardColumn[],
+  taskId: string,
+  sourceColumnId: string,
+  targetColumnId: string
+) {
+  if (sourceColumnId === targetColumnId) return null;
+
+  const next = columns.map((col) => ({ ...col, tasks: [...col.tasks] }));
+  const sourceColumn = next.find((col) => col.id === sourceColumnId);
+  const targetColumn = next.find((col) => col.id === targetColumnId);
+  if (!sourceColumn || !targetColumn) return null;
+
+  const taskIndex = sourceColumn.tasks.findIndex((task) => task.id === taskId);
+  if (taskIndex === -1) return null;
+
+  const [task] = sourceColumn.tasks.splice(taskIndex, 1);
+  targetColumn.tasks.push(task);
+
+  return {
+    columns: next,
+    targetIndex: targetColumn.tasks.length - 1,
+  };
+}
+
+async function persistTaskMove(taskId: string, targetColumnId: string, targetIndex: number) {
+  // Replace with Spring Boot API call when the move endpoint is available.
+  await Promise.resolve({ taskId, targetColumnId, targetIndex });
 }
 
 const TODAY = new Date();
@@ -205,11 +237,17 @@ function TaskCard({
   task,
   isDone,
   onClick,
+  onDragStart,
+  onDragEnd,
+  isDragSource = false,
   filterState = "none",
 }: {
   task: BoardTask;
   isDone?: boolean;
   onClick?: () => void;
+  onDragStart?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: () => void;
+  isDragSource?: boolean;
   filterState?: "none" | "match" | "dimmed";
 }) {
   const t = TYPE_META[task.type];
@@ -226,7 +264,10 @@ function TaskCard({
 
   return (
     <div
+      draggable
       onClick={onClick}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       style={task.isDragging ? {
         transform: "rotate(1.5deg) scale(1.03)",
         boxShadow: "0 28px 70px -12px rgba(0,0,0,0.9), 0 0 0 2px rgba(99,102,241,0.5)",
@@ -234,8 +275,9 @@ function TaskCard({
         position: "relative",
       } : undefined}
       className={[
-        "group flex flex-col gap-3 rounded-lg border p-4 select-none transition-all duration-200",
+        "group relative flex flex-col gap-3 rounded-lg border p-4 select-none transition-all duration-200",
         filterClass,
+        isDragSource ? "opacity-45 scale-[0.98]" : "",
         task.isDragging
           ? "border-[#6366f1]/50 bg-[#1e293b] ring-1 ring-[#6366f1]/25 cursor-grabbing"
           : isDone
@@ -355,15 +397,42 @@ function TaskCard({
 
 // ─── Kanban Column ────────────────────────────────────────────────────────────
 
-function KanbanColumn({ col, onCardClick, isTaskMatch }: { col: BoardColumn; onCardClick: () => void; isTaskMatch?: (task: BoardTask) => boolean }) {
+function KanbanColumn({
+  col,
+  draggedTask,
+  dragOverColumnId,
+  onCardClick,
+  onTaskDragStart,
+  onTaskDragEnd,
+  onColumnDragOver,
+  onColumnDragLeave,
+  onTaskDrop,
+  isTaskMatch,
+}: {
+  col: BoardColumn;
+  draggedTask: DraggedTask | null;
+  dragOverColumnId: string | null;
+  onCardClick: () => void;
+  onTaskDragStart: (taskId: string, sourceColumnId: string, event: React.DragEvent<HTMLDivElement>) => void;
+  onTaskDragEnd: () => void;
+  onColumnDragOver: (columnId: string) => void;
+  onColumnDragLeave: () => void;
+  onTaskDrop: (targetColumnId: string) => void;
+  isTaskMatch?: (task: BoardTask) => boolean;
+}) {
   const isActive = col.id === "in-progress";
+  const isDropTarget = dragOverColumnId === col.id;
 
   return (
-    <div className="flex flex-col w-[300px] min-w-[300px] h-full min-h-0">
+    <div className="flex flex-col w-[300px] min-w-[300px] h-full min-h-0 transition-transform duration-200">
       {/* Column header */}
       <div
         className={`flex items-center justify-between rounded-t-xl px-4 py-3 border border-b-0 flex-shrink-0 ${
-          isActive ? "border-[#6366f1]/30 bg-[#6366f1]/8" : "border-[#334155] bg-[#1e293b]/50"
+          isDropTarget
+            ? "border-[#6366f1]/60 bg-[#6366f1]/10"
+            : isActive
+              ? "border-[#6366f1]/30 bg-[#6366f1]/10"
+              : "border-[#334155] bg-[#1e293b]/50"
         }`}
       >
         <div className="flex items-center gap-2.5">
@@ -390,8 +459,25 @@ function KanbanColumn({ col, onCardClick, isTaskMatch }: { col: BoardColumn; onC
 
       {/* Drop zone + cards (scrollable) */}
       <div
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          onColumnDragOver(col.id);
+        }}
+        onDragLeave={(event) => {
+          const nextTarget = event.relatedTarget as Node | null;
+          if (!nextTarget || !event.currentTarget.contains(nextTarget)) onColumnDragLeave();
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          onTaskDrop(col.id);
+        }}
         className={`flex flex-col gap-2.5 flex-1 rounded-b-xl border border-t-0 p-3 overflow-y-auto min-h-0 ${
-          isActive ? "border-[#6366f1]/30 bg-[#6366f1]/5" : "border-[#334155] bg-[#0f172a]/50"
+          isDropTarget
+            ? "border-[#6366f1]/60 bg-[#6366f1]/10 shadow-[0_0_0_1px_rgba(99,102,241,0.2),0_16px_44px_-28px_rgba(99,102,241,0.9)]"
+            : isActive
+              ? "border-[#6366f1]/30 bg-[#6366f1]/10"
+              : "border-[#334155] bg-[#0f172a]/50"
         }`}
       >
         {col.tasks.map((task) => {
@@ -402,6 +488,9 @@ function KanbanColumn({ col, onCardClick, isTaskMatch }: { col: BoardColumn; onC
               task={task}
               isDone={col.isDone}
               onClick={onCardClick}
+              onDragStart={(event) => onTaskDragStart(task.id, col.id, event)}
+              onDragEnd={onTaskDragEnd}
+              isDragSource={draggedTask?.taskId === task.id}
               filterState={isTaskMatch ? (taskMatches ? "match" : "dimmed") : "none"}
             />
           );
@@ -609,7 +698,9 @@ export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, on
   const [activeTab,    setActiveTab]    = useState(0);
   const [starred,      setStarred]      = useState(false);
   const [membersOpen,  setMembersOpen]  = useState(false);
-  const [extraColumns, setExtraColumns] = useState<BoardColumn[]>([]);
+  const [columns,      setColumns]      = useState<BoardColumn[]>(COLUMNS);
+  const [draggedTask,  setDraggedTask]  = useState<DraggedTask | null>(null);
+  const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const [btnFormOpen,  setBtnFormOpen]  = useState(false);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -625,15 +716,50 @@ export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, on
   const extraCount     = MEMBERS.length - visibleMembers.length;
 
   function handleAddColumn(name: string, color: string) {
-    setExtraColumns((prev) => [
+    setColumns((prev) => [
       ...prev,
       { id: `col-${Date.now()}`, title: name, dotColor: color, tasks: [] },
     ]);
   }
 
+  function handleTaskDragStart(taskId: string, sourceColumnId: string, event: React.DragEvent<HTMLDivElement>) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", taskId);
+    setDraggedTask({ taskId, sourceColumnId });
+  }
+
+  function handleTaskDragEnd() {
+    setDraggedTask(null);
+    setDragOverColumnId(null);
+  }
+
+  async function handleTaskDrop(targetColumnId: string) {
+    if (!draggedTask) return;
+
+    const previousColumns = columns;
+    const moveResult = moveTaskBetweenColumns(
+      columns,
+      draggedTask.taskId,
+      draggedTask.sourceColumnId,
+      targetColumnId
+    );
+
+    setDraggedTask(null);
+    setDragOverColumnId(null);
+    if (!moveResult) return;
+
+    setColumns(moveResult.columns);
+
+    try {
+      await persistTaskMove(draggedTask.taskId, targetColumnId, moveResult.targetIndex);
+    } catch {
+      setColumns(previousColumns);
+    }
+  }
+
   // ─── Filter logic ───────────────────────────────────────────────────────────
 
-  const allColumns = [...COLUMNS, ...extraColumns];
+  const allColumns = columns;
 
   const allMembers = Array.from(
     new Set(allColumns.flatMap((col) => col.tasks.flatMap((t) => t.assignees)))
@@ -808,7 +934,14 @@ export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, on
               <KanbanColumn
                 key={col.id}
                 col={col}
+                draggedTask={draggedTask}
+                dragOverColumnId={dragOverColumnId}
                 onCardClick={() => onTaskClick?.()}
+                onTaskDragStart={handleTaskDragStart}
+                onTaskDragEnd={handleTaskDragEnd}
+                onColumnDragOver={setDragOverColumnId}
+                onColumnDragLeave={() => setDragOverColumnId(null)}
+                onTaskDrop={handleTaskDrop}
                 isTaskMatch={hasActiveFilters ? matchesFilters : undefined}
               />
             ))}

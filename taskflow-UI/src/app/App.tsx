@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Zap, Mail, Lock, Eye, EyeOff, User, ArrowRight,
   CheckCircle2, Circle, Clock, Plus, MoreHorizontal,
   Search, Bell, Settings, ChevronDown, ChevronRight, Calendar,
   Home, ClipboardList, Users, LayoutGrid, TrendingUp, AlertTriangle,
-  ExternalLink, Hash,
+  ExternalLink, Hash, ChevronLeft,
 } from "lucide-react";
 import { TaskDetailPanel } from "./components/TaskDetailPanel";
 import { NotificationDropdown } from "./components/NotificationDropdown";
@@ -25,6 +26,22 @@ type AuthView = "login" | "signup";
 type Priority = "low" | "medium" | "high" | "urgent";
 type NavItem = "home" | "tasks" | "notifications" | "settings";
 type AppView = "home" | "tasks" | "board" | "notifications" | "settings";
+
+const ROUTES: Record<AppView, string> = {
+  home: "/",
+  tasks: "/tasks",
+  board: "/boards/project-alpha",
+  notifications: "/notifications",
+  settings: "/settings",
+};
+
+function getViewFromPath(pathname: string): AppView {
+  if (pathname.startsWith("/tasks")) return "tasks";
+  if (pathname.startsWith("/boards/")) return "board";
+  if (pathname.startsWith("/notifications")) return "notifications";
+  if (pathname.startsWith("/settings")) return "settings";
+  return "home";
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -238,7 +255,21 @@ function LoginPage({ onSignIn }: { onSignIn: () => void }) {
 
 // ─── Sidebar + shared layout ──────────────────────────────────────────────────
 
-function Sidebar({ active, onNav, onOpenBoard, onCreateBoard }: { active: NavItem; onNav: (n: NavItem) => void; onOpenBoard: () => void; onCreateBoard: () => void }) {
+function Sidebar({
+  active,
+  collapsed,
+  onToggle,
+  onNav,
+  onOpenBoard,
+  onCreateBoard,
+}: {
+  active: NavItem;
+  collapsed: boolean;
+  onToggle: () => void;
+  onNav: (n: NavItem) => void;
+  onOpenBoard: () => void;
+  onCreateBoard: () => void;
+}) {
   const [boardsOpen, setBoardsOpen] = useState(true);
   const navItems: { id: NavItem; label: string; icon: React.ElementType; badge?: number }[] = [
     { id: "home",          label: "Home",          icon: Home },
@@ -246,51 +277,99 @@ function Sidebar({ active, onNav, onOpenBoard, onCreateBoard }: { active: NavIte
     { id: "notifications", label: "Notifications", icon: Bell, badge: 3 },
     { id: "settings",      label: "Settings",      icon: Settings },
   ];
+  const labelClass = `overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${
+    collapsed ? "max-w-0 opacity-0 translate-x-1" : "max-w-[180px] opacity-100 translate-x-0"
+  }`;
+
   return (
-    <aside className="flex flex-col w-[260px] min-w-[260px] h-full bg-card border-r border-border overflow-y-auto">
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-border">
+    <aside
+      className={`relative flex h-full flex-col border-r border-border bg-card transition-[width,min-width] duration-300 ease-out ${
+        collapsed ? "w-[72px] min-w-[72px]" : "w-[260px] min-w-[260px]"
+      }`}
+    >
+      <button
+        onClick={onToggle}
+        className="absolute -right-3 top-24 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-lg shadow-black/20 hover:bg-secondary hover:text-foreground transition-all"
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+      </button>
+
+      <div className={`flex h-[72px] items-center gap-2.5 border-b border-border px-4 transition-all duration-300 ${
+        collapsed ? "justify-center" : ""
+      }`}>
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow shadow-primary/30"><Zap className="h-4 w-4 text-white" strokeWidth={2.5} /></div>
-        <span className="text-lg font-semibold text-foreground tracking-tight">TaskFlow</span>
+        <span className={`text-lg font-semibold text-foreground tracking-tight ${labelClass}`}>TaskFlow</span>
       </div>
-      <div className="px-3 py-4 border-b border-border">
-        <button onClick={() => onNav("settings")} className="w-full flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-secondary/40 transition-colors group">
+      <div className="border-b border-border px-3 py-4">
+        <button
+          onClick={() => onNav("settings")}
+          className={
+            collapsed
+              ? "group grid h-10 w-full place-items-center rounded-lg px-0 hover:bg-secondary/40 transition-colors"
+              : "group flex w-full items-center gap-3 rounded-lg px-2 py-2 hover:bg-secondary/40 transition-colors"
+          }
+          title={collapsed ? "Alice Johnson" : undefined}
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white flex-shrink-0" style={{ backgroundColor: "#6366f1" }}>AJ</div>
-          <div className="flex-1 text-left min-w-0"><p className="text-sm font-medium text-foreground truncate">Alice Johnson</p><p className="text-xs text-muted-foreground truncate">alice@taskflow.io</p></div>
-          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className={`flex-1 text-left min-w-0 ${labelClass}`}><p className="text-sm font-medium text-foreground truncate">Alice Johnson</p><p className="text-xs text-muted-foreground truncate">alice@taskflow.io</p></div>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-all duration-300 ${collapsed ? "w-0 opacity-0" : "opacity-100"}`} />
         </button>
       </div>
-      <nav className="px-3 py-3 flex flex-col gap-0.5">
+      <nav className={`px-3 py-3 flex flex-col ${collapsed ? "gap-2" : "gap-0.5"}`}>
         {navItems.map(({ id, label, icon: Icon, badge }) => {
           const isActive = active === id;
           return (
             <button
               key={id}
               onClick={() => onNav(id)}
-              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+              title={collapsed ? label : undefined}
+              className={`relative w-full flex items-center gap-3 rounded-lg text-sm font-medium transition-all ${
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
-              }`}
+              } ${collapsed ? "h-10 justify-center px-0 py-0" : "px-3 py-2.5"}`}
             >
               <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
-              <span className="flex-1 text-left">{label}</span>
-              {badge != null && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-white px-1.5">{badge}</span>}
+              <span className={`flex-1 text-left ${labelClass}`}>{label}</span>
+              {badge != null && (
+                <span className={`flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-white px-1.5 ${
+                  collapsed ? "absolute -right-1 top-1" : ""
+                }`}>
+                  {badge}
+                </span>
+              )}
             </button>
           );
         })}
       </nav>
-      <div className="px-3 mt-2 flex-1">
-        <button onClick={() => setBoardsOpen(!boardsOpen)} className="w-full flex items-center justify-between px-3 py-2 mb-1">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">My Boards</span>
-          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${boardsOpen ? "" : "-rotate-90"}`} />
+      <div className="px-3 mt-2 flex-1 overflow-y-auto overflow-x-hidden">
+        <button
+          onClick={() => !collapsed && setBoardsOpen(!boardsOpen)}
+          className={`w-full flex items-center mb-1 text-muted-foreground ${collapsed ? "h-9 justify-center px-0" : "justify-between px-3 py-2"}`}
+          title={collapsed ? "My Boards" : undefined}
+        >
+          <span className={`text-xs font-semibold uppercase tracking-wider text-muted-foreground ${labelClass}`}>My Boards</span>
+          {collapsed ? (
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+          ) : (
+            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-all duration-300 ${boardsOpen ? "" : "-rotate-90"}`} />
+          )}
         </button>
-        {boardsOpen && (
-          <div className="flex flex-col gap-0.5">
+        {(boardsOpen || collapsed) && (
+          <div className={`flex flex-col ${collapsed ? "gap-3 pt-2" : "gap-0.5"}`}>
             {MY_BOARDS.map((board) => (
-              <button key={board.id} onClick={onOpenBoard} className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 hover:bg-secondary/40 transition-colors group">
+              <button
+                key={board.id}
+                onClick={onOpenBoard}
+                title={collapsed ? board.name : undefined}
+                className={`w-full flex items-center gap-2.5 rounded-lg hover:bg-secondary/40 transition-colors group ${
+                  collapsed ? "h-8 justify-center px-0 py-0" : "px-3 py-2"
+                }`}
+              >
                 <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: board.color }} />
-                <span className="flex-1 text-left text-sm text-muted-foreground group-hover:text-foreground transition-colors truncate">{board.name}</span>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground/60"><Users className="h-3 w-3" /><span>{board.members}</span></div>
+                <span className={`flex-1 text-left text-sm text-muted-foreground group-hover:text-foreground transition-colors truncate ${labelClass}`}>{board.name}</span>
+                <div className={`flex items-center gap-1 text-xs text-muted-foreground/60 ${labelClass}`}><Users className="h-3 w-3" /><span>{board.members}</span></div>
               </button>
             ))}
           </div>
@@ -299,9 +378,13 @@ function Sidebar({ active, onNav, onOpenBoard, onCreateBoard }: { active: NavIte
       <div className="px-3 py-4 border-t border-border mt-2">
         <button
           onClick={onCreateBoard}
-          className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2.5 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all"
+          className={`w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all ${
+            collapsed ? "h-10 py-0" : "py-2.5"
+          }`}
+          title={collapsed ? "Create Board" : undefined}
         >
-          <Plus className="h-4 w-4" />Create Board
+          <Plus className="h-4 w-4 flex-shrink-0" />
+          <span className={labelClass}>Create Board</span>
         </button>
       </div>
     </aside>
@@ -412,8 +495,9 @@ function DashboardHome({ onOpenBoard, onCreateTask }: { onOpenBoard: () => void;
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [appView, setAppView] = useState<AppView>("home");
   const [notifOpen, setNotifOpen] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
@@ -421,6 +505,7 @@ export default function App() {
   const [inviteMemberOpen,   setInviteMemberOpen]   = useState(false);
   const [manageLabelsOpen,   setManageLabelsOpen]   = useState(false);
   const [boardSettingsOpen,  setBoardSettingsOpen]  = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (!isAuthenticated) {
     return (
@@ -439,6 +524,7 @@ export default function App() {
   }
 
   // Which sidebar nav item is highlighted
+  const appView = getViewFromPath(location.pathname);
   const sidebarNav: NavItem =
     appView === "tasks"           ? "tasks"
     : appView === "notifications" ? "notifications"
@@ -446,11 +532,11 @@ export default function App() {
     : "home";
 
   function handleSidebarNav(n: NavItem) {
-    setAppView(
-      n === "tasks"           ? "tasks"
-      : n === "notifications" ? "notifications"
-      : n === "settings"      ? "settings"
-      : "home"
+    navigate(
+      n === "tasks"           ? ROUTES.tasks
+      : n === "notifications" ? ROUTES.notifications
+      : n === "settings"      ? ROUTES.settings
+      : ROUTES.home
     );
     setNotifOpen(false);
   }
@@ -461,8 +547,10 @@ export default function App() {
       {/* ── Permanent Sidebar ─────────────────────────────────────────────── */}
       <Sidebar
         active={sidebarNav}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((value) => !value)}
         onNav={handleSidebarNav}
-        onOpenBoard={() => { setAppView("board"); setNotifOpen(false); }}
+        onOpenBoard={() => { navigate(ROUTES.board); setNotifOpen(false); }}
         onCreateBoard={() => setCreateBoardOpen(true)}
       />
 
@@ -480,7 +568,7 @@ export default function App() {
               className="flex flex-col flex-1 min-w-0 overflow-hidden"
             >
               <BoardDetail
-                onBack={() => setAppView("home")}
+                onBack={() => navigate(ROUTES.home)}
                 onCreateTask={() => setCreateTaskOpen(true)}
                 onInvite={() => setInviteMemberOpen(true)}
                 onManageLabels={() => setManageLabelsOpen(true)}
@@ -538,7 +626,7 @@ export default function App() {
               {/* Scrollable content area */}
               <main className={`flex-1 min-h-0 w-full ${appView === "settings" ? "flex overflow-hidden" : "overflow-y-auto"} ${appView === "notifications" ? "flex flex-col" : ""}`}>
                 {appView === "home" && (
-                  <DashboardHome onOpenBoard={() => setAppView("board")} onCreateTask={() => setCreateTaskOpen(true)} />
+                  <DashboardHome onOpenBoard={() => navigate(ROUTES.board)} onCreateTask={() => setCreateTaskOpen(true)} />
                 )}
                 {appView === "tasks" && (
                   <div className="px-8 py-8 w-full">
@@ -586,7 +674,7 @@ export default function App() {
             onClose={() => setCreateBoardOpen(false)}
             onCreate={() => {
               setCreateBoardOpen(false);
-              setAppView("board");
+              navigate(ROUTES.board);
             }}
           />
         )}
