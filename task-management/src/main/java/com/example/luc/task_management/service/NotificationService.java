@@ -1,6 +1,8 @@
 package com.example.luc.task_management.service;
 
 import com.example.luc.task_management.dto.response.NotificationResponse;
+import com.example.luc.task_management.dto.websocket.WebSocketMessage;
+import com.example.luc.task_management.dto.websocket.WebSocketMessageType;
 import com.example.luc.task_management.entity.Notification;
 import com.example.luc.task_management.entity.User;
 import com.example.luc.task_management.enums.NotificationType;
@@ -9,6 +11,7 @@ import com.example.luc.task_management.exception.AppException;
 import com.example.luc.task_management.exception.ErrorCode;
 import com.example.luc.task_management.repository.NotificationRepository;
 import com.example.luc.task_management.util.SecurityUtils;
+import com.example.luc.task_management.websocket.WebSocketBroadcaster;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +28,7 @@ import java.util.stream.Collectors;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final WebSocketBroadcaster webSocketBroadcaster;
 
     // Lấy danh sách thông báo có phân trang
     @Transactional(readOnly = true)
@@ -44,7 +48,6 @@ public class NotificationService {
     public Long countUnread() {
 
         User currentUser = SecurityUtils.getCurrentUser();
-
         return notificationRepository.countByUserIdAndIsReadFalse(currentUser.getId());
     }
 
@@ -52,7 +55,19 @@ public class NotificationService {
     @Transactional
     public void markAsRead(Long notificationId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        notificationRepository.markAsReadByIdAndUserId(notificationId, currentUser.getId());
+
+        Notification notification = notificationRepository.findById(notificationId)
+                        .orElseThrow(() -> new AppException(ErrorCode.BAD_REQUEST));
+
+        if (!notification.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+        if (!notification.getIsRead()) {
+            notification.setIsRead(true);
+            notificationRepository.save(notification);
+
+            // Gửi WebSocket cập nhật lại Badge Count chưa đọc ở Client thời gian thực
+            broadcastUnreadCount(currentUser);        }
     }
 
     // đánh dấu tất cả thông báo đã đọc
@@ -61,6 +76,9 @@ public class NotificationService {
         User currentUser = SecurityUtils.getCurrentUser();
         notificationRepository.markAllAsReadByUserId(currentUser.getId());
         log.info("Marked all notification as read for user: {}", currentUser.getEmail());
+
+        // Gửi WebSocket cập nhật Badge Count về 0 ngay lập tức mà không cần F5
+        broadcastUnreadCount(currentUser);
     }
 
     @Transactional
@@ -75,7 +93,13 @@ public class NotificationService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        boolean wasUnread = !notification.getIsRead();
         notificationRepository.delete(notification);
+
+        // Nếu xóa một thông báo chưa kịp đọc, cập nhật lại số lượng badge
+        if (wasUnread) {
+            broadcastUnreadCount(currentUser);
+        }
     }
 
     // ─────────────────────────────────────────
@@ -96,6 +120,33 @@ public class NotificationService {
                 .build();
 
         notificationRepository.save(notification);
-        log.info("Notification sent to: {} type: {}", recipient.getEmail(), type);
+
+        // ★ WEBSOCKET – Push notification real-time
+        WebSocketMessage<NotificationResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.NOTIFICATION_NEW,
+                NotificationResponse.fromEntity(notification),
+                null,
+                "system"
+        );
+        webSocketBroadcaster.sendToUser(recipient.getEmail(), wsMessage);
+
+        // Đẩy kèm cập nhật tổng số lượng count chưa đọc cho Client tăng số đỏ (+1) lên luôn
+        broadcastUnreadCount(recipient);
+
+        log.info("Notification saved + pushed to: {}", recipient.getEmail());
+    }
+
+    /**
+     * Hàm Helper hỗ trợ đồng bộ số lượng tin nhắn chưa đọc lên UI thông qua WebSocket chuyên biệt
+     */
+    private void broadcastUnreadCount(User user) {
+        Long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(user.getId());
+        WebSocketMessage<Long> countMessage = WebSocketMessage.of(
+                WebSocketMessageType.NOTIFICATION_COUNT_UPDATED,
+                unreadCount,
+                null,
+                "system"
+        );
+        webSocketBroadcaster.sendToUser(user.getEmail(), countMessage);
     }
 }

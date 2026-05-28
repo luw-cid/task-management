@@ -30,7 +30,8 @@ public class SecuriryConfig {
             "/api/auth/**",
             "/swagger-ui/**",
             "/v3/api-docs/**",
-            "/ws/**"
+            "/ws/**",
+            "/ws/info/**"      // ← SockJS info endpoint
     };
 
     @Bean

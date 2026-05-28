@@ -1,4 +1,4 @@
-package com.example.luc.task_management.dto;
+package com.example.luc.task_management.dto.websocket;
 
 public enum WebSocketMessageType {
     // Task events
@@ -17,6 +17,7 @@ public enum WebSocketMessageType {
     NOTIFICATION_NEW,
     NOTIFICATION_READ,
     NOTIFICATION_READ_ALL,
+    NOTIFICATION_COUNT_UPDATED,
 
     // Board events
     BOARD_MEMBER_INVITED,

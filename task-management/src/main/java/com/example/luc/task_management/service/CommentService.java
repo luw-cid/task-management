@@ -3,16 +3,19 @@ package com.example.luc.task_management.service;
 import com.example.luc.task_management.dto.request.comment.CreateCommentRequest;
 import com.example.luc.task_management.dto.request.comment.UpdateCommentRequest;
 import com.example.luc.task_management.dto.response.CommentResponse;
+import com.example.luc.task_management.dto.websocket.WebSocketMessage;
+import com.example.luc.task_management.dto.websocket.WebSocketMessageType;
 import com.example.luc.task_management.entity.Comment;
 import com.example.luc.task_management.entity.Task;
 import com.example.luc.task_management.entity.User;
 import com.example.luc.task_management.exception.AppException;
 import com.example.luc.task_management.exception.ErrorCode;
-import com.example.luc.task_management.pattern.observer.comment.CommentObserver;
+import com.example.luc.task_management.pattern.observer.CommentObserver;
 import com.example.luc.task_management.repository.BoardRepository;
 import com.example.luc.task_management.repository.CommentRepository;
 import com.example.luc.task_management.repository.TaskRepository;
 import com.example.luc.task_management.util.SecurityUtils;
+import com.example.luc.task_management.websocket.WebSocketBroadcaster;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +31,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CommentService {
 
+    private final WebSocketBroadcaster webSocketBroadcaster;
     private final CommentRepository commentRepository;
     private final TaskRepository taskRepository;
     private final BoardRepository boardRepository;
@@ -49,10 +53,24 @@ public class CommentService {
                 .build();
         commentRepository.save(comment);
 
+        CommentResponse response = CommentResponse.fromEntity(comment);
+
+        // Thông báo cho assignee + reporter
         commentObserver.onCommentAdded(comment);
 
+        // ★ WEBSOCKET – Broadcast comment mới tới tất cả
+        // người đang xem task này real-time
+        WebSocketMessage<CommentResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.COMMENT_ADDED,
+                response,
+                boardId,
+                currentUser.getEmail()
+        );
+        wsMessage.setTaskId(taskId);
+        webSocketBroadcaster.broadcastToTask(taskId, wsMessage);
+
         log.info("Comment added it task {} by: {}", task.getTitle(), currentUser.getEmail());
-        return CommentResponse.fromEntity(comment);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -92,7 +110,19 @@ public class CommentService {
         comment.setIsEdited(true);
         commentRepository.save(comment);
 
-        return CommentResponse.fromEntity(comment);
+        CommentResponse response = CommentResponse.fromEntity(comment);
+
+        // ★ WEBSOCKET
+        WebSocketMessage<CommentResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.COMMENT_UPDATED,
+                response,
+                boardId,
+                currentUser.getEmail()
+        );
+        wsMessage.setTaskId(taskId);
+        webSocketBroadcaster.broadcastToTask(taskId, wsMessage);
+
+        return response;
     }
 
     @Transactional
@@ -116,7 +146,16 @@ public class CommentService {
         }
 
         commentRepository.delete(comment);
-        log.info("Comment deleted: {} by: {}", commentId, currentUser.getEmail());
+
+        // ★ WEBSOCKET
+        WebSocketMessage<Long> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.COMMENT_DELETED,
+                commentId,   // Gửi ID comment bị xóa
+                boardId,
+                currentUser.getEmail()
+        );
+        wsMessage.setTaskId(taskId);
+        webSocketBroadcaster.broadcastToTask(taskId, wsMessage);
     }
 
     private void checkBoardMember(Long boardId, User user) {

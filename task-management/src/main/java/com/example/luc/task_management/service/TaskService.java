@@ -5,6 +5,8 @@ import com.example.luc.task_management.dto.request.task.CreateTaskRequest;
 import com.example.luc.task_management.dto.request.task.MoveTaskRequest;
 import com.example.luc.task_management.dto.request.task.UpdateTaskRequest;
 import com.example.luc.task_management.dto.response.TaskResponse;
+import com.example.luc.task_management.dto.websocket.WebSocketMessage;
+import com.example.luc.task_management.dto.websocket.WebSocketMessageType;
 import com.example.luc.task_management.entity.*;
 import com.example.luc.task_management.enums.ActivityAction;
 import com.example.luc.task_management.enums.TaskStatus;
@@ -16,10 +18,11 @@ import com.example.luc.task_management.pattern.command.MoveTaskCommand;
 import com.example.luc.task_management.pattern.command.UpdateTaskCommand;
 import com.example.luc.task_management.pattern.factory.TaskFactory;
 import com.example.luc.task_management.pattern.factory.TaskProduct;
-import com.example.luc.task_management.pattern.observer.task.TaskEvenPublisher;
+import com.example.luc.task_management.pattern.observer.TaskEvenPublisher;
 import com.example.luc.task_management.pattern.strategy.TaskSortContext;
 import com.example.luc.task_management.repository.*;
 import com.example.luc.task_management.util.SecurityUtils;
+import com.example.luc.task_management.websocket.WebSocketBroadcaster;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,6 +43,7 @@ public class TaskService {
     private final UserRepository userRepository;
     private final CommandInvoker commandInvoker;
     private final TaskEvenPublisher taskEvenPublisher;
+    private final WebSocketBroadcaster webSocketBroadcaster;
 
     // ─────────────────────────────────────────
     // TẠO TASK – Dùng Factory Pattern
@@ -87,6 +91,15 @@ public class TaskService {
 
         taskRepository.save(task);
 
+        // Sau khi createTask() lưu xong
+        WebSocketMessage<TaskResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.TASK_CREATED,
+                TaskResponse.fromEntity(task, taskProduct.getColor()),
+                boardId,
+                currentUser.getEmail()
+        );
+        webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
+
         // Ghi log tạo task
         ActivityLog activityLog = ActivityLog.builder()
                 .board(board)
@@ -96,7 +109,7 @@ public class TaskService {
                 .newValue(task.getTitle())
                 .build();
 
-        // Nếu có asignee -> Bbserver thông báo
+        // Nếu có asignee -> Observer thông báo
         if (assignee != null) {
             taskEvenPublisher.publish(
                     task,
@@ -149,7 +162,8 @@ public class TaskService {
         User currentUser = SecurityUtils.getCurrentUser();
         checkBoardMember(boardId, currentUser);
 
-        Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
+        Task task = taskRepository.findByIdAndBoardId
+                        (taskId, boardId)
                 .orElseThrow(() -> new AppException((ErrorCode.TASK_NOT_FOUND)));
 
         TaskProduct product = TaskFactory.createTask(task.getType());
@@ -180,6 +194,18 @@ public class TaskService {
 
         taskRepository.save(task);
 
+        TaskProduct product = TaskFactory.createTask(task.getType());
+        TaskResponse response = TaskResponse.fromEntity(task, product.getColor());
+
+        // Bổ sung WebSocket realtime cho sự kiện update
+        WebSocketMessage<TaskResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.TASK_UPDATED,
+                response,
+                boardId,
+                currentUser.getEmail()
+        );
+        webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
+
         // Observer thông báo
         taskEvenPublisher.publish(
                 task,
@@ -187,8 +213,7 @@ public class TaskService {
                 String.format("Task '%s' is updated", task.getTitle())
         );
 
-        TaskProduct product = TaskFactory.createTask(task.getType());
-        return TaskResponse.fromEntity(task, product.getColor());
+        return response;
     }
 
     @Transactional
@@ -212,6 +237,17 @@ public class TaskService {
 
         taskRepository.save(task);
 
+        TaskProduct product = TaskFactory.createTask(task.getType());
+        TaskResponse response = TaskResponse.fromEntity(task, product.getColor());
+
+        WebSocketMessage<TaskResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.TASK_MOVED,
+                response,
+                boardId,
+                currentUser.getEmail()
+        );
+        webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
+
         // Observer thông báo
         taskEvenPublisher.publish(
                 task,
@@ -219,7 +255,6 @@ public class TaskService {
                 String.format("Task '%s is moved to '%s'", task.getTitle(), newColumn.getName())
         );
 
-        TaskProduct product = TaskFactory.createTask(task.getType());
         return TaskResponse.fromEntity(task, product.getColor());
     }
 
@@ -228,7 +263,7 @@ public class TaskService {
         User currentUser = SecurityUtils.getCurrentUser();
         checkBoardMember(boardId, currentUser);
 
-        Task task = taskRepository.findByIdAndBoardId(boardId, taskId)
+        Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
 
         User newAssignee = null;
@@ -242,6 +277,18 @@ public class TaskService {
 
         taskRepository.save(task);
 
+        TaskProduct product = TaskFactory.createTask(task.getType());
+        TaskResponse response = TaskResponse.fromEntity(task, product.getColor());
+
+        // Bổ sung WebSocket realtime cho sự kiện Assignee thay đổi
+        WebSocketMessage<TaskResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.TASK_ASSIGNED,
+                response,
+                boardId,
+                currentUser.getEmail()
+        );
+        webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
+
         // observer auto thông báo cho người đc gán
         if (newAssignee != null) {
             taskEvenPublisher.publish(
@@ -251,8 +298,7 @@ public class TaskService {
             );
         }
 
-        TaskProduct product = TaskFactory.createTask(task.getType());
-        return TaskResponse.fromEntity(task, product.getColor());
+        return response;
     }
 
     @Transactional
@@ -264,6 +310,16 @@ public class TaskService {
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
 
         taskRepository.delete(task);
+
+        // Bổ sung WebSocket thông báo xóa task để UI ẩn ngay lập tức
+        WebSocketMessage<Long> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.TASK_DELETED,
+                taskId,
+                boardId,
+                currentUser.getEmail()
+        );
+        webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
+
         log.info("Task deleted: {} by {}", task.getTitle(), currentUser.getEmail());
     }
 
