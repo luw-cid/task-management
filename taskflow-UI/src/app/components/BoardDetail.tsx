@@ -694,8 +694,26 @@ const VIEW_TABS = [
   { label: "Statistics", icon: TrendingUp  },
 ];
 
-export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, onTaskClick, onBoardSettings }: { onBack: () => void; onCreateTask?: () => void; onInvite?: () => void; onManageLabels?: () => void; onTaskClick?: () => void; onBoardSettings?: () => void }) {
-  const [activeTab,    setActiveTab]    = useState(0);
+export function BoardDetail({
+  onBack,
+  onCreateTask,
+  onInvite,
+  onManageLabels,
+  onTaskClick,
+  onBoardSettings,
+  initialActiveTab = 0,
+  onTabChange,
+}: {
+  onBack: () => void;
+  onCreateTask?: () => void;
+  onInvite?: () => void;
+  onManageLabels?: () => void;
+  onTaskClick?: () => void;
+  onBoardSettings?: () => void;
+  initialActiveTab?: number;
+  onTabChange?: (tabIndex: number) => void;
+}) {
+  const [activeTab,    setActiveTab]    = useState(initialActiveTab);
   const [starred,      setStarred]      = useState(false);
   const [membersOpen,  setMembersOpen]  = useState(false);
   const [columns,      setColumns]      = useState<BoardColumn[]>(COLUMNS);
@@ -711,6 +729,10 @@ export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, on
     deadlines: [],
     labels: [],
   });
+
+  useEffect(() => {
+    setActiveTab(initialActiveTab);
+  }, [initialActiveTab]);
 
   const visibleMembers = MEMBERS.slice(0, 4);
   const extraCount     = MEMBERS.length - visibleMembers.length;
@@ -895,7 +917,10 @@ export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, on
           {VIEW_TABS.map(({ label, icon: Icon }, i) => (
             <button
               key={label}
-              onClick={() => setActiveTab(i)}
+              onClick={() => {
+                setActiveTab(i);
+                onTabChange?.(i);
+              }}
               className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium border-b-2 transition-all ${
                 activeTab === i
                   ? "border-[#6366f1] text-[#6366f1]"

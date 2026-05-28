@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Zap, Mail, Lock, Eye, EyeOff, User, ArrowRight,
   CheckCircle2, Circle, Clock, Plus, MoreHorizontal,
   Search, Bell, Settings, ChevronDown, ChevronRight, Calendar,
   Home, ClipboardList, Users, LayoutGrid, TrendingUp, AlertTriangle,
-  ExternalLink, Hash, ChevronLeft,
+  ExternalLink, Hash, ChevronLeft, LogOut,
 } from "lucide-react";
 import { TaskDetailPanel } from "./components/TaskDetailPanel";
 import { NotificationDropdown } from "./components/NotificationDropdown";
@@ -19,6 +20,7 @@ import { InviteMemberModal } from "./components/InviteMemberModal";
 import { ManageLabelsModal } from "./components/ManageLabelsModal";
 import { BoardSettingsModal } from "./components/BoardSettingsModal";
 import { NoNotificationsState } from "./components/EmptyStates";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -27,19 +29,21 @@ type Priority = "low" | "medium" | "high" | "urgent";
 type NavItem = "home" | "tasks" | "notifications" | "settings";
 type AppView = "home" | "tasks" | "board" | "notifications" | "settings";
 
+const queryClient = new QueryClient();
+
 const ROUTES: Record<AppView, string> = {
   home: "/",
   tasks: "/tasks",
   board: "/boards/project-alpha",
   notifications: "/notifications",
-  settings: "/settings",
+  settings: "/profile",
 };
 
 function getViewFromPath(pathname: string): AppView {
   if (pathname.startsWith("/tasks")) return "tasks";
   if (pathname.startsWith("/boards/")) return "board";
   if (pathname.startsWith("/notifications")) return "notifications";
-  if (pathname.startsWith("/settings")) return "settings";
+  if (pathname.startsWith("/profile") || pathname.startsWith("/settings")) return "settings";
   return "home";
 }
 
@@ -228,8 +232,8 @@ function AuthPanel({ view, onSwitch, onSignIn }: { view: AuthView; onSwitch: () 
   );
 }
 
-function LoginPage({ onSignIn }: { onSignIn: () => void }) {
-  const [authView, setAuthView] = useState<AuthView>("login");
+function LoginPage({ view, onSignIn }: { view: AuthView; onSignIn: () => void }) {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen flex bg-background font-['Inter']">
       <div className="hidden lg:flex lg:w-[55%] flex-col justify-between p-12 relative overflow-hidden">
@@ -246,7 +250,11 @@ function LoginPage({ onSignIn }: { onSignIn: () => void }) {
         <div className="relative z-10"><p className="text-xs text-[#475569]">Trusted by 12,000+ teams at companies like Vercel, Linear, and Stripe.</p></div>
       </div>
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-card lg:border-l border-border">
-        <AuthPanel view={authView} onSwitch={() => setAuthView(authView === "login" ? "signup" : "login")} onSignIn={onSignIn} />
+        <AuthPanel
+          view={view}
+          onSwitch={() => navigate(view === "login" ? "/register" : "/login")}
+          onSignIn={onSignIn}
+        />
         <p className="mt-10 text-xs text-muted-foreground text-center">By continuing, you agree to our{" "}<button className="underline underline-offset-2 hover:text-foreground transition-colors">Terms of Service</button>{" "}and{" "}<button className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</button></p>
       </div>
     </div>
@@ -262,6 +270,7 @@ function Sidebar({
   onNav,
   onOpenBoard,
   onCreateBoard,
+  onLogout,
 }: {
   active: NavItem;
   collapsed: boolean;
@@ -269,6 +278,7 @@ function Sidebar({
   onNav: (n: NavItem) => void;
   onOpenBoard: () => void;
   onCreateBoard: () => void;
+  onLogout: () => void;
 }) {
   const [boardsOpen, setBoardsOpen] = useState(true);
   const navItems: { id: NavItem; label: string; icon: React.ElementType; badge?: number }[] = [
@@ -374,17 +384,27 @@ function Sidebar({
             ))}
           </div>
         )}
-      </div>
-      <div className="px-3 py-4 border-t border-border mt-2">
         <button
           onClick={onCreateBoard}
-          className={`w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all ${
+          className={`mt-4 w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all ${
             collapsed ? "h-10 py-0" : "py-2.5"
           }`}
           title={collapsed ? "Create Board" : undefined}
         >
           <Plus className="h-4 w-4 flex-shrink-0" />
           <span className={labelClass}>Create Board</span>
+        </button>
+      </div>
+      <div className="px-3 py-4 border-t border-border mt-2">
+        <button
+          onClick={onLogout}
+          className={`w-full flex items-center justify-center gap-2 rounded-lg px-2 text-sm font-medium text-muted-foreground hover:bg-[#ef4444]/10 hover:text-[#ef4444] transition-all ${
+            collapsed ? "h-10 py-0" : "py-2.5"
+          }`}
+          title={collapsed ? "Logout" : undefined}
+        >
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          <span className={labelClass}>Logout</span>
         </button>
       </div>
     </aside>
@@ -494,10 +514,10 @@ function DashboardHome({ onOpenBoard, onCreateTask }: { onOpenBoard: () => void;
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-export default function App() {
+function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { boardId = "project-alpha" } = useParams();
   const [notifOpen, setNotifOpen] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
@@ -506,22 +526,6 @@ export default function App() {
   const [manageLabelsOpen,   setManageLabelsOpen]   = useState(false);
   const [boardSettingsOpen,  setBoardSettingsOpen]  = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  if (!isAuthenticated) {
-    return (
-      <AnimatePresence mode="wait">
-        <motion.div
-          key="login"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <LoginPage onSignIn={() => setIsAuthenticated(true)} />
-        </motion.div>
-      </AnimatePresence>
-    );
-  }
 
   // Which sidebar nav item is highlighted
   const appView = getViewFromPath(location.pathname);
@@ -541,6 +545,31 @@ export default function App() {
     setNotifOpen(false);
   }
 
+  function handleLogout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    setNotifOpen(false);
+    setTaskDetailOpen(false);
+    setCreateBoardOpen(false);
+    setCreateTaskOpen(false);
+    setInviteMemberOpen(false);
+    setManageLabelsOpen(false);
+    setBoardSettingsOpen(false);
+    onLogout();
+    navigate("/login", { replace: true });
+  }
+
+  function handleBoardTabChange(tabIndex: number) {
+    if (tabIndex === 4) {
+      navigate(`/boards/${boardId}/statistics`);
+      return;
+    }
+
+    if (location.pathname.endsWith("/statistics")) {
+      navigate(`/boards/${boardId}`);
+    }
+  }
+
   return (
     <div className="flex h-screen w-screen bg-background font-['Inter'] overflow-hidden">
 
@@ -552,6 +581,7 @@ export default function App() {
         onNav={handleSidebarNav}
         onOpenBoard={() => { navigate(ROUTES.board); setNotifOpen(false); }}
         onCreateBoard={() => setCreateBoardOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* ── Main content column ───────────────────────────────────────────── */}
@@ -574,6 +604,8 @@ export default function App() {
                 onManageLabels={() => setManageLabelsOpen(true)}
                 onTaskClick={() => setTaskDetailOpen(true)}
                 onBoardSettings={() => setBoardSettingsOpen(true)}
+                initialActiveTab={location.pathname.endsWith("/statistics") ? 4 : 0}
+                onTabChange={handleBoardTabChange}
               />
             </motion.div>
           ) : (
@@ -711,5 +743,57 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function App() {
+  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem("token"));
+
+  useEffect(() => {
+    function handleAuthExpired() {
+      setIsAuthenticated(false);
+      navigate("/login", { replace: true });
+    }
+
+    window.addEventListener("taskflow:auth-expired", handleAuthExpired);
+    return () => window.removeEventListener("taskflow:auth-expired", handleAuthExpired);
+  }, [navigate]);
+
+  function handleSignIn() {
+    localStorage.setItem("token", localStorage.getItem("token") ?? "taskflow-demo-token");
+    setIsAuthenticated(true);
+    navigate("/", { replace: true });
+  }
+
+  function handleLogout() {
+    setIsAuthenticated(false);
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Routes>
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage view="login" onSignIn={handleSignIn} />}
+        />
+        <Route
+          path="/register"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage view="signup" onSignIn={handleSignIn} />}
+        />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<AuthenticatedLayout onLogout={handleLogout} />} />
+          <Route path="/tasks" element={<AuthenticatedLayout onLogout={handleLogout} />} />
+          <Route path="/boards/:boardId" element={<AuthenticatedLayout onLogout={handleLogout} />} />
+          <Route path="/boards/:boardId/statistics" element={<AuthenticatedLayout onLogout={handleLogout} />} />
+          <Route path="/profile" element={<AuthenticatedLayout onLogout={handleLogout} />} />
+          <Route path="/notifications" element={<AuthenticatedLayout onLogout={handleLogout} />} />
+          <Route path="/settings" element={<Navigate to="/profile" replace />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />} />
+      </Routes>
+    </QueryClientProvider>
   );
 }
