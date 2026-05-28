@@ -2,12 +2,10 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Zap, Mail, Lock, Eye, EyeOff, User, ArrowRight,
-  CheckCircle2, Circle, Clock, AlertCircle, Plus, MoreHorizontal,
+  CheckCircle2, Circle, Clock, Plus, MoreHorizontal,
   Search, Bell, Settings, ChevronDown, ChevronRight, Calendar,
   Home, ClipboardList, Users, LayoutGrid, TrendingUp, AlertTriangle,
-  ExternalLink, Hash, ArrowLeft, Filter, SlidersHorizontal,
-  ChevronsUp, ChevronUp, Minus, MessageSquare, ListChecks,
-  MoreVertical, Grip,
+  ExternalLink, Hash,
 } from "lucide-react";
 import { TaskDetailPanel } from "./components/TaskDetailPanel";
 import { NotificationDropdown } from "./components/NotificationDropdown";
@@ -18,12 +16,13 @@ import { CreateBoardModal } from "./components/CreateBoardModal";
 import { CreateTaskModal } from "./components/CreateTaskModal";
 import { InviteMemberModal } from "./components/InviteMemberModal";
 import { ManageLabelsModal } from "./components/ManageLabelsModal";
+import { BoardSettingsModal } from "./components/BoardSettingsModal";
+import { NoNotificationsState } from "./components/EmptyStates";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type AuthView = "login" | "signup";
 type Priority = "low" | "medium" | "high" | "urgent";
-type TaskType = "BUG" | "FEATURE" | "EPIC" | "IMPROVEMENT";
 type NavItem = "home" | "tasks" | "notifications" | "settings";
 type AppView = "home" | "tasks" | "board" | "notifications" | "settings";
 
@@ -50,160 +49,6 @@ function getPasswordStrength(pw: string) {
     { score: 4, label: "Strong", color: "#10b981" },
   ][s - 1] || { score: 0, label: "", color: "" };
 }
-
-// ─── Kanban Data ─────────────────────────────────────────────────────────────
-
-interface KanbanTask {
-  id: string;
-  type: TaskType;
-  title: string;
-  description: string;
-  tags: { label: string; color: string }[];
-  assignees: string[];
-  priority: Priority;
-  deadline: string;
-  comments: number;
-  subtasks: { done: number; total: number };
-  isDragging?: boolean;
-}
-interface KanbanCol {
-  id: string;
-  title: string;
-  color: string;
-  tasks: KanbanTask[];
-  isDone?: boolean;
-  highlight?: boolean;
-}
-
-const KANBAN_COLS: KanbanCol[] = [
-  {
-    id: "todo", title: "To Do", color: "#64748b",
-    tasks: [
-      {
-        id: "k1", type: "FEATURE",
-        title: "Redesign onboarding flow",
-        description: "Rework the 5-step onboarding into a streamlined 3-step wizard with live progress tracking.",
-        tags: [{ label: "UX", color: "#6366f1" }, { label: "Frontend", color: "#06b6d4" }],
-        assignees: ["Alice Johnson", "Sarah Chen"],
-        priority: "high", deadline: "2026-06-05", comments: 3,
-        subtasks: { done: 2, total: 5 },
-      },
-      {
-        id: "k2", type: "BUG",
-        title: "Fix login redirect on mobile Safari",
-        description: "Auth redirect fails silently on iOS Safari 17 when third-party cookies are blocked by default.",
-        tags: [{ label: "Mobile", color: "#f59e0b" }, { label: "Auth", color: "#ef4444" }],
-        assignees: ["Tom Wilson"],
-        priority: "urgent", deadline: "2026-05-30", comments: 1,
-        subtasks: { done: 0, total: 2 },
-      },
-      {
-        id: "k3", type: "IMPROVEMENT",
-        title: "Improve search result ranking",
-        description: "Replace simple string match with weighted fuzzy search using TF-IDF relevance scoring.",
-        tags: [{ label: "Search", color: "#10b981" }, { label: "Backend", color: "#8b5cf6" }],
-        assignees: ["Priya Nair", "Marcus Webb"],
-        priority: "medium", deadline: "2026-06-10", comments: 5,
-        subtasks: { done: 1, total: 3 },
-      },
-    ],
-  },
-  {
-    id: "in-progress", title: "In Progress", color: "#6366f1", highlight: true,
-    tasks: [
-      {
-        id: "k4", type: "EPIC",
-        title: "Auth system v2 — OAuth + SSO",
-        description: "Implement OAuth 2.0 with Google and GitHub, plus enterprise SSO via SAML 2.0 federation.",
-        tags: [{ label: "Auth", color: "#ef4444" }, { label: "Backend", color: "#8b5cf6" }, { label: "Security", color: "#f59e0b" }],
-        assignees: ["Alex Rivera", "Tom Wilson", "Raj Patel"],
-        priority: "high", deadline: "2026-06-03", comments: 8,
-        subtasks: { done: 3, total: 6 },
-        isDragging: true,
-      },
-      {
-        id: "k5", type: "FEATURE",
-        title: "Dashboard analytics widgets",
-        description: "Add burndown chart, velocity tracker, and cycle time histogram to the sprint overview.",
-        tags: [{ label: "Analytics", color: "#6366f1" }, { label: "Charts", color: "#06b6d4" }],
-        assignees: ["Sarah Chen"],
-        priority: "medium", deadline: "2026-06-08", comments: 2,
-        subtasks: { done: 4, total: 4 },
-      },
-    ],
-  },
-  {
-    id: "review", title: "In Review", color: "#f59e0b",
-    tasks: [
-      {
-        id: "k6", type: "BUG",
-        title: "Memory leak in real-time sync",
-        description: "WebSocket listeners are not cleaned up on route change, causing steady heap growth over time.",
-        tags: [{ label: "Performance", color: "#ef4444" }, { label: "WebSocket", color: "#8b5cf6" }],
-        assignees: ["Marcus Webb"],
-        priority: "urgent", deadline: "2026-05-28", comments: 4,
-        subtasks: { done: 1, total: 1 },
-      },
-      {
-        id: "k7", type: "IMPROVEMENT",
-        title: "Keyboard navigation for board",
-        description: "Full keyboard support — arrow keys to move focus between cards and columns, Enter to open.",
-        tags: [{ label: "A11y", color: "#10b981" }, { label: "Frontend", color: "#06b6d4" }],
-        assignees: ["Emily Davis"],
-        priority: "low", deadline: "2026-06-01", comments: 2,
-        subtasks: { done: 3, total: 3 },
-      },
-    ],
-  },
-  {
-    id: "done", title: "Done", color: "#10b981", isDone: true,
-    tasks: [
-      {
-        id: "k8", type: "FEATURE",
-        title: "CSV export for task lists",
-        description: "One-click export of filtered task views to CSV with all metadata columns included.",
-        tags: [{ label: "Export", color: "#10b981" }, { label: "Backend", color: "#8b5cf6" }],
-        assignees: ["Raj Patel"],
-        priority: "medium", deadline: "2026-05-22", comments: 3,
-        subtasks: { done: 3, total: 3 },
-      },
-      {
-        id: "k9", type: "BUG",
-        title: "Notification bell missing on mobile",
-        description: "The bell icon was clipped by the hamburger overflow container on viewports under 375px.",
-        tags: [{ label: "Mobile", color: "#f59e0b" }, { label: "UI", color: "#6366f1" }],
-        assignees: ["Emily Davis"],
-        priority: "high", deadline: "2026-05-20", comments: 1,
-        subtasks: { done: 2, total: 2 },
-      },
-      {
-        id: "k10", type: "EPIC",
-        title: "Initial project setup & CI/CD",
-        description: "Repository scaffold, GitHub Actions pipelines, staging and production deployment config.",
-        tags: [{ label: "DevOps", color: "#06b6d4" }, { label: "Infra", color: "#94a3b8" }],
-        assignees: ["Alex Rivera", "Tom Wilson"],
-        priority: "high", deadline: "2026-05-15", comments: 7,
-        subtasks: { done: 6, total: 6 },
-      },
-    ],
-  },
-];
-
-const BOARD_MEMBERS = ["Alice Johnson", "Sarah Chen", "Tom Wilson", "Marcus Webb", "Priya Nair"];
-
-const TYPE_STYLES: Record<TaskType, { bg: string; text: string; label: string }> = {
-  BUG:         { bg: "bg-[#ef4444]/12", text: "text-[#ef4444]",  label: "Bug" },
-  FEATURE:     { bg: "bg-[#6366f1]/12", text: "text-[#6366f1]",  label: "Feature" },
-  EPIC:        { bg: "bg-[#8b5cf6]/12", text: "text-[#8b5cf6]",  label: "Epic" },
-  IMPROVEMENT: { bg: "bg-[#10b981]/12", text: "text-[#10b981]",  label: "Improvement" },
-};
-
-const PRIORITY_META: Record<Priority, { icon: React.ElementType; color: string; label: string }> = {
-  urgent: { icon: ChevronsUp, color: "#ef4444", label: "Urgent" },
-  high:   { icon: ChevronUp,  color: "#f97316", label: "High" },
-  medium: { icon: Minus,      color: "#f59e0b", label: "Medium" },
-  low:    { icon: ChevronDown,color: "#94a3b8", label: "Low" },
-};
 
 // ─── Dashboard Data ───────────────────────────────────────────────────────────
 
@@ -391,306 +236,6 @@ function LoginPage({ onSignIn }: { onSignIn: () => void }) {
   );
 }
 
-// ─── Kanban Components ────────────────────────────────────────────────────────
-
-function TaskCard({ task, isDone, onClick }: { task: KanbanTask; isDone?: boolean; onClick?: () => void }) {
-  const type = TYPE_STYLES[task.type];
-  const pMeta = PRIORITY_META[task.priority];
-  const PIcon = pMeta.icon;
-  const isOverdue = !isDone && new Date(task.deadline) < new Date("2026-05-28");
-  const subtaskPct = task.subtasks.total > 0 ? (task.subtasks.done / task.subtasks.total) * 100 : 0;
-
-  return (
-    <div
-      onClick={onClick}
-      className={`group relative flex flex-col gap-3 rounded-xl border p-4 cursor-pointer transition-all duration-200
-        ${task.isDragging
-          ? "border-primary/60 bg-[#1e293b] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.7)] rotate-[1.5deg] scale-[1.02] ring-2 ring-primary/30 z-20"
-          : isDone
-            ? "border-border/40 bg-card/50 opacity-60 hover:opacity-80 hover:border-border hover:shadow-md"
-            : "border-border bg-card hover:border-border/80 hover:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.5)]"
-        }`}
-    >
-      {/* Drag handle (visible on hover) */}
-      {!task.isDragging && (
-        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Grip className="h-3.5 w-3.5 text-muted-foreground/50" />
-        </div>
-      )}
-
-      {/* Type badge */}
-      <div className="flex items-center justify-between">
-        <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${type.bg} ${type.text}`}>
-          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: "currentColor" }} />
-          {type.label}
-        </span>
-        {task.isDragging && (
-          <span className="text-[10px] text-primary/70 font-medium">Dragging…</span>
-        )}
-      </div>
-
-      {/* Title */}
-      <div>
-        <h4 className={`text-sm font-semibold leading-snug ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}>
-          {task.title}
-        </h4>
-        <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed line-clamp-2">
-          {task.description}
-        </p>
-      </div>
-
-      {/* Tags */}
-      {task.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {task.tags.map((tag) => (
-            <span
-              key={tag.label}
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-              style={{ backgroundColor: tag.color + "18", color: tag.color }}
-            >
-              {tag.label}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Subtask progress bar */}
-      {task.subtasks.total > 0 && (
-        <div className="flex flex-col gap-1">
-          <div className="h-1 w-full rounded-full bg-secondary/60">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${subtaskPct}%`,
-                backgroundColor: subtaskPct === 100 ? "#10b981" : PRIORITY_META[task.priority].color,
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Bottom row */}
-      <div className="flex items-center justify-between gap-2 pt-0.5">
-        {/* Assignee avatars */}
-        <div className="flex -space-x-1.5">
-          {task.assignees.slice(0, 3).map((a) => (
-            <div
-              key={a}
-              className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-card text-[9px] font-bold text-white flex-shrink-0"
-              style={{ backgroundColor: getAvatarColor(a) }}
-              title={a}
-            >
-              {getInitials(a)}
-            </div>
-          ))}
-          {task.assignees.length > 3 && (
-            <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-card bg-secondary text-[9px] font-medium text-muted-foreground">
-              +{task.assignees.length - 3}
-            </div>
-          )}
-        </div>
-
-        {/* Right meta strip */}
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          {/* Priority */}
-          <span title={`${pMeta.label} priority`}>
-            <PIcon className="h-3.5 w-3.5" style={{ color: pMeta.color }} />
-          </span>
-
-          {/* Deadline */}
-          <span className={`flex items-center gap-1 text-[10px] font-medium ${isOverdue ? "text-[#ef4444]" : "text-muted-foreground"}`} title={isOverdue ? "Overdue" : "Deadline"}>
-            {isOverdue && <AlertTriangle className="h-3 w-3" />}
-            <Calendar className="h-3 w-3" />
-            {new Date(task.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          </span>
-
-          {/* Comments */}
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <MessageSquare className="h-3 w-3" />
-            {task.comments}
-          </span>
-
-          {/* Subtasks */}
-          <span
-            className={`flex items-center gap-1 text-[10px] font-medium ${task.subtasks.done === task.subtasks.total && task.subtasks.total > 0 ? "text-[#10b981]" : "text-muted-foreground"}`}
-            title="Subtasks"
-          >
-            <ListChecks className="h-3 w-3" />
-            {task.subtasks.done}/{task.subtasks.total}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function KanbanColumnComponent({ col, onCardClick, onCreateTask }: { col: KanbanCol; onCardClick?: () => void; onCreateTask?: () => void }) {
-  return (
-    <div className="flex flex-col w-[308px] min-w-[308px] max-h-full">
-      {/* Column header */}
-      <div
-        className={`flex items-center justify-between rounded-t-xl px-4 py-3 mb-0 border border-b-0 ${
-          col.highlight ? "border-primary/30 bg-primary/8" : "border-border bg-secondary/30"
-        }`}
-      >
-        <div className="flex items-center gap-2.5">
-          {/* Color indicator */}
-          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: col.color }} />
-          <span className={`text-sm font-semibold ${col.highlight ? "text-primary" : "text-foreground"}`}>
-            {col.title}
-          </span>
-          <span
-            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
-            style={{ backgroundColor: col.color + "22", color: col.color }}
-          >
-            {col.tasks.length}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary/50 hover:text-foreground transition-colors">
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-          <button className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary/50 hover:text-foreground transition-colors">
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Drop zone / card list */}
-      <div
-        className={`flex flex-col gap-3 flex-1 rounded-b-xl border border-t-0 p-3 overflow-y-auto min-h-[200px] ${
-          col.highlight ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/10"
-        }`}
-        style={{ maxHeight: "calc(100vh - 200px)" }}
-      >
-        {col.tasks.map((task) => (
-          <TaskCard key={task.id} task={task} isDone={col.isDone} onClick={onCardClick} />
-        ))}
-
-        {/* Add task row */}
-        <button onClick={onCreateTask} className="flex items-center gap-2 rounded-lg border border-dashed border-border/50 px-3 py-2.5 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all mt-1">
-          <Plus className="h-3.5 w-3.5" />
-          Add task
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function KanbanContent({ onCreateTask, onTaskClick }: { onCreateTask: () => void; onTaskClick: () => void }) {
-  const [searchVal, setSearchVal] = useState("");
-  const [membersOpen, setMembersOpen] = useState(false);
-  const extraMembers = 3;
-
-  return (
-    <div className="flex flex-col h-full bg-background overflow-hidden">
-      {/* Board toolbar */}
-      <header className="flex items-center gap-4 px-6 py-3.5 border-b border-border bg-card flex-shrink-0">
-        {/* Board title */}
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#6366f1]/20 flex-shrink-0">
-            <LayoutGrid className="h-4 w-4 text-primary" />
-          </div>
-          <h1 className="text-sm font-semibold text-foreground truncate">Project Alpha</h1>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-        </div>
-
-        <div className="w-px h-5 bg-border flex-shrink-0" />
-
-        {/* Member avatars */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={() => setMembersOpen(true)}
-            className="flex -space-x-2 hover:opacity-90 transition-opacity"
-            title="Manage board members"
-          >
-            {BOARD_MEMBERS.map((m) => (
-              <div
-                key={m}
-                className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card text-[9px] font-bold text-white"
-                style={{ backgroundColor: getAvatarColor(m) }}
-                title={m}
-              >
-                {getInitials(m)}
-              </div>
-            ))}
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-secondary text-[10px] font-semibold text-muted-foreground">
-              +{extraMembers}
-            </div>
-          </button>
-          <button
-            onClick={() => setMembersOpen(true)}
-            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
-            title="Add member"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-
-        <div className="w-px h-5 bg-border flex-shrink-0" />
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          {/* Filter */}
-          <button className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary/40 hover:text-foreground transition-colors flex-shrink-0">
-            <Filter className="h-3.5 w-3.5" />
-            Filter
-          </button>
-
-          {/* Sort */}
-          <button className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary/40 hover:text-foreground transition-colors flex-shrink-0">
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            Sort
-            <ChevronDown className="h-3 w-3" />
-          </button>
-
-          {/* Search */}
-          <div className="relative flex-shrink-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search tasks…"
-              value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              className="w-44 rounded-lg border border-border bg-card py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring focus:w-56 transition-all"
-            />
-          </div>
-
-          {/* Add Task */}
-          <button onClick={onCreateTask} className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 active:scale-[0.98] transition-all shadow shadow-primary/25 flex-shrink-0">
-            <Plus className="h-3.5 w-3.5" />
-            Add Task
-          </button>
-
-          {/* Settings */}
-          <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary/40 hover:text-foreground transition-colors flex-shrink-0">
-            <Settings className="h-4 w-4" />
-          </button>
-        </div>
-      </header>
-
-      {/* Board area — horizontal scroll */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden p-6">
-        <div className="flex gap-4 h-full items-start min-w-max">
-          {KANBAN_COLS.map((col) => (
-            <KanbanColumnComponent key={col.id} col={col} onCardClick={onTaskClick} onCreateTask={onCreateTask} />
-          ))}
-
-          {/* Add Column */}
-          <div className="flex flex-col w-[260px] min-w-[260px]">
-            <button className="flex items-center gap-2.5 rounded-xl border border-dashed border-border/50 px-5 py-4 text-sm font-medium text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all w-full">
-              <Plus className="h-4 w-4" />
-              Add Column
-            </button>
-          </div>
-        </div>
-      </main>
-
-      {membersOpen && <BoardMembersModal onClose={() => setMembersOpen(false)} />}
-    </div>
-  );
-}
-
 // ─── Sidebar + shared layout ──────────────────────────────────────────────────
 
 function Sidebar({ active, onNav, onOpenBoard, onCreateBoard }: { active: NavItem; onNav: (n: NavItem) => void; onOpenBoard: () => void; onCreateBoard: () => void }) {
@@ -718,7 +263,15 @@ function Sidebar({ active, onNav, onOpenBoard, onCreateBoard }: { active: NavIte
         {navItems.map(({ id, label, icon: Icon, badge }) => {
           const isActive = active === id;
           return (
-            <button key={id} onClick={() => onNav(id)} className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"}`}>
+            <button
+              key={id}
+              onClick={() => onNav(id)}
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+              }`}
+            >
               <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
               <span className="flex-1 text-left">{label}</span>
               {badge != null && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-white px-1.5">{badge}</span>}
@@ -805,7 +358,7 @@ function BoardCard({ board, onClick }: { board: typeof RECENT_BOARDS[0]; onClick
 function TaskRow({ task }: { task: typeof MY_TASKS[0] }) {
   const [done, setDone] = useState(task.done);
   const p = PRIORITY_STYLES[task.priority];
-  const isOverdue = !done && new Date(task.deadline) < new Date("2026-05-28");
+  const isOverdue = !done && new Date(task.deadline) < new Date();
   return (
     <div className={`group flex items-center gap-4 rounded-lg px-4 py-3 hover:bg-secondary/20 transition-colors ${done ? "opacity-50" : ""}`}>
       <button onClick={() => setDone(!done)} className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors">{done ? <CheckCircle2 className="h-4 w-4 text-[#10b981]" /> : <Circle className="h-4 w-4" />}</button>
@@ -865,8 +418,9 @@ export default function App() {
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [createTaskOpen,  setCreateTaskOpen]  = useState(false);
-  const [inviteMemberOpen,  setInviteMemberOpen]  = useState(false);
-  const [manageLabelsOpen,  setManageLabelsOpen]  = useState(false);
+  const [inviteMemberOpen,   setInviteMemberOpen]   = useState(false);
+  const [manageLabelsOpen,   setManageLabelsOpen]   = useState(false);
+  const [boardSettingsOpen,  setBoardSettingsOpen]  = useState(false);
 
   if (!isAuthenticated) {
     return (
@@ -886,14 +440,14 @@ export default function App() {
 
   // Which sidebar nav item is highlighted
   const sidebarNav: NavItem =
-    appView === "tasks"         ? "tasks"
+    appView === "tasks"           ? "tasks"
     : appView === "notifications" ? "notifications"
     : appView === "settings"      ? "settings"
     : "home";
 
   function handleSidebarNav(n: NavItem) {
     setAppView(
-      n === "tasks"         ? "tasks"
+      n === "tasks"           ? "tasks"
       : n === "notifications" ? "notifications"
       : n === "settings"      ? "settings"
       : "home"
@@ -931,6 +485,7 @@ export default function App() {
                 onInvite={() => setInviteMemberOpen(true)}
                 onManageLabels={() => setManageLabelsOpen(true)}
                 onTaskClick={() => setTaskDetailOpen(true)}
+                onBoardSettings={() => setBoardSettingsOpen(true)}
               />
             </motion.div>
           ) : (
@@ -948,7 +503,7 @@ export default function App() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Search tasks, boards…"
+                    placeholder="Search tasks, boards..."
                     className="w-72 rounded-lg border border-border bg-card py-2 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
                   />
                 </div>
@@ -981,7 +536,7 @@ export default function App() {
               </header>
 
               {/* Scrollable content area */}
-              <main className={`flex-1 min-h-0 w-full ${appView === "settings" ? "flex overflow-hidden" : "overflow-y-auto"}`}>
+              <main className={`flex-1 min-h-0 w-full ${appView === "settings" ? "flex overflow-hidden" : "overflow-y-auto"} ${appView === "notifications" ? "flex flex-col" : ""}`}>
                 {appView === "home" && (
                   <DashboardHome onOpenBoard={() => setAppView("board")} onCreateTask={() => setCreateTaskOpen(true)} />
                 )}
@@ -997,19 +552,13 @@ export default function App() {
                   </div>
                 )}
                 {appView === "notifications" && (
-                  <div className="px-8 py-8 w-full">
-                    <h1 className="text-2xl font-semibold text-foreground mb-6">Notifications</h1>
-                    <div className="flex flex-col gap-2">
-                      {[
-                        "Marcus Webb mentioned you in Product Roadmap",
-                        "Emily Davis assigned a task to you",
-                        "Sprint 24.2 ends in 2 days — 4 tasks overdue",
-                      ].map((n, i) => (
-                        <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-card px-5 py-4">
-                          <div className="h-2 w-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                          <p className="text-sm text-foreground">{n}</p>
-                        </div>
-                      ))}
+                  <div className="flex flex-col h-full">
+                    <div className="px-8 pt-8 pb-2 border-b border-border/50 flex-shrink-0">
+                      <h1 className="text-2xl font-semibold text-foreground mb-1">Notifications</h1>
+                      <p className="text-sm text-muted-foreground">Stay up to date with your team's activity</p>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <NoNotificationsState />
                     </div>
                   </div>
                 )}
@@ -1064,6 +613,13 @@ export default function App() {
       <AnimatePresence>
         {manageLabelsOpen && (
           <ManageLabelsModal onClose={() => setManageLabelsOpen(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Board Settings modal — fade + scale */}
+      <AnimatePresence>
+        {boardSettingsOpen && (
+          <BoardSettingsModal onClose={() => setBoardSettingsOpen(false)} />
         )}
       </AnimatePresence>
     </div>

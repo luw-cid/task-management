@@ -90,7 +90,7 @@ function StatCard({
   valueColor?: string; progress?: number;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-[#334155] bg-[#1e293b] p-5">
+    <div className="flex min-h-[150px] flex-col gap-3 rounded-xl border border-[#334155] bg-[#1e293b] p-5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-[#94a3b8]">{label}</span>
         <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: iconBg }}>
@@ -117,11 +117,11 @@ function StatCard({
 
 export function BoardStatistics() {
   return (
-    <div className="flex-1 overflow-y-auto min-h-0 bg-[#0f172a]">
-      <div className="px-6 py-6 flex flex-col gap-5 max-w-[1200px]">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-[#0f172a]">
+      <div className="flex w-full flex-col gap-5 px-4 py-5 sm:px-6">
 
         {/* ── Section label ─────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-[#f1f5f9]">Board Statistics</h2>
             <p className="text-xs text-[#64748b] mt-0.5">Sprint 24.2 · May 2026</p>
@@ -130,7 +130,7 @@ export function BoardStatistics() {
         </div>
 
         {/* ── Row 1: Stat Cards ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Total Tasks" value={24} sub="Across all columns"
             icon={BarChart2} iconColor="#6366f1" iconBg="rgba(99,102,241,0.15)"
@@ -153,10 +153,10 @@ export function BoardStatistics() {
         </div>
 
         {/* ── Row 2: Charts ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
 
           {/* Donut: Tasks by Status */}
-          <div className="flex flex-col gap-4 rounded-xl border border-[#334155] bg-[#1e293b] p-5">
+          <div className="flex min-h-[340px] flex-col gap-4 rounded-xl border border-[#334155] bg-[#1e293b] p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[#f1f5f9]">Tasks by Status</h3>
               <span className="text-xs text-[#64748b]">24 total</span>
@@ -164,7 +164,7 @@ export function BoardStatistics() {
 
             {/* Donut with center label overlay */}
             <div className="relative">
-              <ResponsiveContainer width="100%" height={190}>
+              <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
                     data={STATUS_DATA}
@@ -198,7 +198,7 @@ export function BoardStatistics() {
             </div>
 
             {/* Legend */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
               {STATUS_DATA.map((d) => (
                 <div key={d.name} className="flex items-center gap-2">
                   <span
@@ -215,14 +215,14 @@ export function BoardStatistics() {
           </div>
 
           {/* Bar: Tasks by Type */}
-          <div className="flex flex-col gap-4 rounded-xl border border-[#334155] bg-[#1e293b] p-5">
+          <div className="flex min-h-[340px] flex-col gap-4 rounded-xl border border-[#334155] bg-[#1e293b] p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[#f1f5f9]">Tasks by Type</h3>
               <span className="text-xs text-[#64748b]">24 total</span>
             </div>
 
             <div className="flex-1 flex flex-col justify-center">
-              <ResponsiveContainer width="100%" height={190}>
+              <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={TYPE_DATA} layout="vertical" barCategoryGap="32%">
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -265,7 +265,7 @@ export function BoardStatistics() {
             </div>
 
             {/* Type legend */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
               {TYPE_DATA.map((d) => (
                 <div key={d.name} className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: d.color, opacity: 0.85 }} />
@@ -284,7 +284,8 @@ export function BoardStatistics() {
             <span className="text-xs text-[#64748b]">Sprint 24.2</span>
           </div>
 
-          <table className="w-full border-collapse">
+          <div className="overflow-x-auto">
+          <table className="min-w-[760px] w-full border-collapse">
             <thead>
               <tr className="border-b border-[#334155]/60">
                 <th className="text-left pb-3 text-[10px] font-semibold uppercase tracking-wider text-[#475569] w-56">Member</th>
@@ -345,11 +346,12 @@ export function BoardStatistics() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* ── Row 4: Tasks Due This Week ────────────────────────────────────── */}
         <div className="flex flex-col gap-4 rounded-xl border border-[#334155] bg-[#1e293b] p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-[#f1f5f9]">Tasks Due This Week</h3>
             <div className="flex items-center gap-1.5 text-xs text-[#64748b]">
               <Calendar className="h-3.5 w-3.5" />
@@ -364,7 +366,7 @@ export function BoardStatistics() {
               return (
                 <div
                   key={task.id}
-                  className="group flex items-center gap-3 rounded-lg border px-4 py-3 transition-all cursor-pointer"
+                  className="group flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 transition-all cursor-pointer lg:flex-nowrap"
                   style={
                     task.overdue
                       ? { borderColor: "rgba(239,68,68,0.25)", backgroundColor: "rgba(239,68,68,0.05)" }
@@ -378,7 +380,7 @@ export function BoardStatistics() {
                   />
 
                   {/* Title */}
-                  <span className="flex-1 text-sm font-medium text-[#f1f5f9] truncate min-w-0">
+                  <span className="min-w-[220px] flex-1 text-sm font-medium text-[#f1f5f9] lg:min-w-0 lg:truncate">
                     {task.title}
                   </span>
 

@@ -488,7 +488,7 @@ export function TaskDetailPanel({ isOpen, onClose }: TaskDetailPanelProps) {
 
           {/* Panel */}
           <motion.div
-            className="fixed right-0 top-0 z-50 h-screen w-[600px] flex flex-col border-l shadow-2xl shadow-black/60"
+            className="fixed right-0 top-0 z-50 h-screen w-full sm:w-[600px] flex flex-col border-l shadow-2xl shadow-black/60"
             style={{
               backgroundColor: "#111827",
               borderColor: isEditMode ? "#6366f1" + "30" : "#1e293b",

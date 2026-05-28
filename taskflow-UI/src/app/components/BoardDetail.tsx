@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
+import { AnimatePresence } from "motion/react";
 import {
-  ArrowLeft, Star, Filter, ChevronDown, Search, Plus,
+  ArrowLeft, Star, Filter, ChevronDown, Plus,
   MoreHorizontal, Paperclip, Calendar, CheckSquare, AlertTriangle,
-  Grip, SlidersHorizontal, UserPlus, LayoutGrid, List,
-  GitBranch, CalendarDays, Tag, TrendingUp,
+  Grip, UserPlus, LayoutGrid, List,
+  GitBranch, CalendarDays, TrendingUp, Settings, Tag,
 } from "lucide-react";
-import { TaskDetailPanel } from "./TaskDetailPanel";
 import { BoardMembersModal } from "./BoardMembersModal";
 import { BoardStatistics } from "./BoardStatistics";
+import { FilterSearchPanel, type FilterState } from "./FilterSearchPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
-const TODAY = new Date("2026-05-27");
+const TODAY = new Date();
 
 // ─── Type metadata ────────────────────────────────────────────────────────────
 
@@ -111,7 +112,6 @@ const COLUMNS: BoardColumn[] = [
         assignees: ["Alex Rivera", "Tom Wilson", "Priya Nair"],
         priority: "high", deadline: "2026-06-03",
         subtasks: { done: 3, total: 6 }, attachments: 5, comments: 8,
-        isDragging: true,
       },
       {
         id: "c5", type: "FEATURE",
@@ -201,12 +201,28 @@ const COLUMNS: BoardColumn[] = [
 
 // ─── Task Card ────────────────────────────────────────────────────────────────
 
-function TaskCard({ task, isDone, onClick }: { task: BoardTask; isDone?: boolean; onClick?: () => void }) {
+function TaskCard({
+  task,
+  isDone,
+  onClick,
+  filterState = "none",
+}: {
+  task: BoardTask;
+  isDone?: boolean;
+  onClick?: () => void;
+  filterState?: "none" | "match" | "dimmed";
+}) {
   const t = TYPE_META[task.type];
   const isOverdue = !isDone && new Date(task.deadline) < TODAY;
   const pct = task.subtasks.total > 0 ? (task.subtasks.done / task.subtasks.total) * 100 : 0;
   const deadlineLabel = new Date(task.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const allDone = task.subtasks.done === task.subtasks.total && task.subtasks.total > 0;
+  const filterClass =
+    filterState === "match"
+      ? "ring-1 ring-[#6366f1]/45 shadow-[0_0_0_1px_rgba(99,102,241,0.14),0_14px_36px_-24px_rgba(99,102,241,0.9)]"
+      : filterState === "dimmed"
+        ? "opacity-45 saturate-50 hover:opacity-60"
+        : "";
 
   return (
     <div
@@ -219,6 +235,7 @@ function TaskCard({ task, isDone, onClick }: { task: BoardTask; isDone?: boolean
       } : undefined}
       className={[
         "group flex flex-col gap-3 rounded-lg border p-4 select-none transition-all duration-200",
+        filterClass,
         task.isDragging
           ? "border-[#6366f1]/50 bg-[#1e293b] ring-1 ring-[#6366f1]/25 cursor-grabbing"
           : isDone
@@ -338,7 +355,7 @@ function TaskCard({ task, isDone, onClick }: { task: BoardTask; isDone?: boolean
 
 // ─── Kanban Column ────────────────────────────────────────────────────────────
 
-function KanbanColumn({ col, onCardClick }: { col: BoardColumn; onCardClick: () => void }) {
+function KanbanColumn({ col, onCardClick, isTaskMatch }: { col: BoardColumn; onCardClick: () => void; isTaskMatch?: (task: BoardTask) => boolean }) {
   const isActive = col.id === "in-progress";
 
   return (
@@ -377,9 +394,18 @@ function KanbanColumn({ col, onCardClick }: { col: BoardColumn; onCardClick: () 
           isActive ? "border-[#6366f1]/30 bg-[#6366f1]/5" : "border-[#334155] bg-[#0f172a]/50"
         }`}
       >
-        {col.tasks.map((task) => (
-          <TaskCard key={task.id} task={task} isDone={col.isDone} onClick={onCardClick} />
-        ))}
+        {col.tasks.map((task) => {
+          const taskMatches = isTaskMatch?.(task);
+          return (
+            <TaskCard
+              key={task.id}
+              task={task}
+              isDone={col.isDone}
+              onClick={onCardClick}
+              filterState={isTaskMatch ? (taskMatches ? "match" : "dimmed") : "none"}
+            />
+          );
+        })}
 
         {/* Add task row */}
         <button className="flex items-center gap-2 mt-0.5 rounded-lg border border-dashed border-[#334155]/60 px-3 py-2.5 text-[11px] font-medium text-[#475569] hover:border-[#6366f1]/40 hover:text-[#6366f1] hover:bg-[#6366f1]/5 transition-all flex-shrink-0">
@@ -579,16 +605,21 @@ const VIEW_TABS = [
   { label: "Statistics", icon: TrendingUp  },
 ];
 
-export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, onTaskClick }: { onBack: () => void; onCreateTask?: () => void; onInvite?: () => void; onManageLabels?: () => void; onTaskClick?: () => void }) {
+export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, onTaskClick, onBoardSettings }: { onBack: () => void; onCreateTask?: () => void; onInvite?: () => void; onManageLabels?: () => void; onTaskClick?: () => void; onBoardSettings?: () => void }) {
   const [activeTab,    setActiveTab]    = useState(0);
   const [starred,      setStarred]      = useState(false);
-  const [searchVal,    setSearchVal]    = useState("");
   const [membersOpen,  setMembersOpen]  = useState(false);
   const [extraColumns, setExtraColumns] = useState<BoardColumn[]>([]);
   const [btnFormOpen,  setBtnFormOpen]  = useState(false);
-
-  // Ref so Style 1 button can focus the Style 2 form's input
-  const comparisonInputRef = useRef<HTMLInputElement>(null);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    search: "",
+    types: [],
+    priorities: [],
+    assignees: [],
+    deadlines: [],
+    labels: [],
+  });
 
   const visibleMembers = MEMBERS.slice(0, 4);
   const extraCount     = MEMBERS.length - visibleMembers.length;
@@ -600,130 +631,141 @@ export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, on
     ]);
   }
 
+  // ─── Filter logic ───────────────────────────────────────────────────────────
+
+  const allColumns = [...COLUMNS, ...extraColumns];
+
+  const allMembers = Array.from(
+    new Set(allColumns.flatMap((col) => col.tasks.flatMap((t) => t.assignees)))
+  );
+  const allLabels = Array.from(
+    new Set(allColumns.flatMap((col) => col.tasks.flatMap((t) => t.labels.map((l) => JSON.stringify({ label: l.text, color: l.color })))))
+  ).map((str) => JSON.parse(str) as { label: string; color: string });
+
+  const matchesFilters = (task: BoardTask): boolean => {
+    if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.types.length > 0 && !filters.types.includes(task.type)) return false;
+    if (filters.priorities.length > 0) {
+      const pMap: Record<string, string> = { low: "LOW", medium: "MEDIUM", high: "HIGH", urgent: "CRITICAL" };
+      if (!filters.priorities.includes(pMap[task.priority] as any)) return false;
+    }
+    if (filters.assignees.length > 0 && !filters.assignees.some((a) => task.assignees.includes(a))) return false;
+    if (filters.deadlines.length > 0) {
+      const taskDate = new Date(task.deadline);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7);
+      const monthEnd = new Date(today); monthEnd.setDate(today.getDate() + 30);
+      const matches = filters.deadlines.some((d) => {
+        if (d === "This week") return taskDate >= today && taskDate <= weekEnd;
+        if (d === "This month") return taskDate >= today && taskDate <= monthEnd;
+        if (d === "Overdue") return taskDate < today;
+        return false;
+      });
+      if (!matches) return false;
+    }
+    if (filters.labels.length > 0 && !filters.labels.some((label) => task.labels.some((l) => l.text === label))) return false;
+    return true;
+  };
+
+  const hasActiveFilters = !!(
+    filters.search ||
+    filters.types.length > 0 ||
+    filters.priorities.length > 0 ||
+    filters.assignees.length > 0 ||
+    filters.deadlines.length > 0 ||
+    filters.labels.length > 0
+  );
+
+  const activeFilterCount =
+    (filters.search ? 1 : 0) +
+    [filters.types.length, filters.priorities.length, filters.assignees.length, filters.deadlines.length, filters.labels.length].reduce((a, b) => a + b, 0);
+
+  const totalTasks = allColumns.reduce((s, c) => s + c.tasks.length, 0);
+  const matchingTasks = allColumns.reduce((s, c) => s + c.tasks.filter(matchesFilters).length, 0);
+
   return (
     <div className="flex flex-col h-full bg-[#0f172a] overflow-hidden">
 
       {/* ── Board Header ───────────────────────────────────────────────────── */}
       <header className="flex-shrink-0 border-b border-[#334155]">
 
-        {/* Row 1: breadcrumb · title · star ── member stack · share · controls */}
-        <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-3">
-
-          {/* Left */}
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Back link */}
-            <button
-              onClick={onBack}
-              className="group flex items-center gap-1.5 text-[#64748b] hover:text-[#94a3b8] transition-colors flex-shrink-0"
-            >
+        {/* Row 1: breadcrumb · title · star ── search · filter · settings · add task */}
+        <div className="flex flex-wrap items-center gap-3 px-4 pt-5 pb-3 sm:px-6">
+          {/* Left: back + title + members */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button onClick={onBack} className="group flex items-center gap-1.5 text-[#64748b] hover:text-[#94a3b8] transition-colors flex-shrink-0">
               <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
               <span className="text-xs font-medium">Dashboard</span>
             </button>
-
             <span className="text-[#334155] text-sm flex-shrink-0 select-none">/</span>
-
-            {/* Board identity */}
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#6366f1]/20 flex-shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#6366f1]/20 flex-shrink-0">
                 <LayoutGrid className="h-4 w-4 text-[#6366f1]" />
               </div>
-              <h1 className="text-base font-semibold text-[#f1f5f9] truncate">
-                Project Alpha 🚀
-              </h1>
-              <button
-                onClick={() => setStarred((s) => !s)}
-                className="flex-shrink-0 hover:scale-110 transition-transform"
-                title={starred ? "Remove from favourites" : "Add to favourites"}
-              >
-                <Star
-                  className="h-4 w-4 transition-colors"
-                  style={{ color: starred ? "#f59e0b" : "#475569", fill: starred ? "#f59e0b" : "none" }}
-                />
+              <h1 className="text-base font-semibold text-[#f1f5f9] truncate">Project Alpha 🚀</h1>
+              <button onClick={() => setStarred((s) => !s)} className="flex-shrink-0 hover:scale-110 transition-transform" title={starred ? "Remove from favourites" : "Add to favourites"}>
+                <Star className="h-4 w-4 transition-colors" style={{ color: starred ? "#f59e0b" : "#475569", fill: starred ? "#f59e0b" : "none" }} />
               </button>
             </div>
-          </div>
-
-          {/* Right: avatars, share, controls, add task */}
-          <div className="flex items-center gap-2.5 flex-shrink-0">
-
-            {/* Member avatar stack */}
-            <button
-              onClick={() => setMembersOpen(true)}
-              className="flex -space-x-2 hover:opacity-90 transition-opacity"
-              title="Manage members"
-            >
+            <div className="w-px h-5 bg-[#334155] flex-shrink-0" />
+            <button onClick={() => setMembersOpen(true)} className="flex -space-x-2 hover:opacity-90 transition-opacity flex-shrink-0">
               {visibleMembers.map((m) => (
-                <div
-                  key={m}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0f172a] text-[9px] font-bold text-white flex-shrink-0"
-                  style={{ backgroundColor: avatarColor(m) }}
-                  title={m}
-                >
+                <div key={m} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0f172a] text-[9px] font-bold text-white flex-shrink-0" style={{ backgroundColor: avatarColor(m) }} title={m}>
                   {initials(m)}
                 </div>
               ))}
               {extraCount > 0 && (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#334155] text-[9px] font-semibold text-[#94a3b8]">
-                  +{extraCount}
-                </div>
+                <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#334155] text-[9px] font-semibold text-[#94a3b8]">+{extraCount}</div>
               )}
             </button>
-
-            {/* Share / Invite */}
-            <button
-              onClick={onInvite ?? (() => setMembersOpen(true))}
-              className="flex items-center gap-1.5 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-1.5 text-xs font-medium text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors"
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              Invite
+            <button onClick={onInvite ?? (() => setMembersOpen(true))} className="flex items-center gap-1.5 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-1.5 text-xs font-medium text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors flex-shrink-0">
+              <UserPlus className="h-3.5 w-3.5" /> Invite
             </button>
+          </div>
 
-            <div className="w-px h-5 bg-[#334155]" />
-
-            {/* Filter */}
-            <button className="flex items-center gap-1.5 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-1.5 text-xs font-medium text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
-              <Filter className="h-3.5 w-3.5" />
-              Filter
-            </button>
-
-            {/* Labels */}
+          {/* Right: filter + board actions */}
+          <div className="flex flex-wrap items-center justify-end gap-2 min-w-0">
+            {activeTab !== 4 && (
+              <button
+                onClick={() => setFilterPanelOpen((v) => !v)}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  filterPanelOpen || hasActiveFilters
+                    ? "border-[#6366f1]/50 bg-[#6366f1]/10 text-[#818cf8]"
+                    : "border-[#334155] bg-[#1e293b] text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9]"
+                }`}
+              >
+                <Filter className="h-3.5 w-3.5" />
+                Filters
+                {hasActiveFilters && activeFilterCount > 0 && (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#6366f1] text-[10px] font-semibold text-white px-1">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            )}
             <button
               onClick={onManageLabels}
-              className="flex items-center gap-1.5 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-1.5 text-xs font-medium text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#334155] bg-[#1e293b] text-[#64748b] hover:bg-[#334155] hover:text-[#94a3b8] transition-colors"
+              title="Manage labels"
             >
               <Tag className="h-3.5 w-3.5" />
-              Labels
             </button>
-
-            {/* Group by */}
-            <button className="flex items-center gap-1.5 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-1.5 text-xs font-medium text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors whitespace-nowrap">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Group by: Status
-              <ChevronDown className="h-3 w-3 ml-0.5" />
+            <button
+              onClick={onBoardSettings}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#334155] bg-[#1e293b] text-[#64748b] hover:bg-[#334155] hover:text-[#94a3b8] transition-colors"
+              title="Board settings"
+            >
+              <Settings className="h-3.5 w-3.5" />
             </button>
-
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#475569] pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search tasks…"
-                value={searchVal}
-                onChange={(e) => setSearchVal(e.target.value)}
-                className="h-8 w-36 rounded-lg border border-[#334155] bg-[#1e293b] pl-8 pr-3 text-xs text-[#f1f5f9] placeholder:text-[#475569] focus:outline-none focus:ring-1 focus:ring-[#6366f1]/50 focus:border-[#6366f1]/50 focus:w-48 transition-all"
-              />
-            </div>
-
-            {/* Add Task */}
             <button onClick={onCreateTask} className="flex items-center gap-1.5 rounded-lg bg-[#6366f1] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#5558e8] active:scale-[0.98] transition-all shadow shadow-[#6366f1]/30">
               <Plus className="h-3.5 w-3.5" />
-              Add Task
+              <span className="hidden sm:inline">Add Task</span>
             </button>
           </div>
         </div>
 
         {/* Row 2: view tabs */}
-        <div className="flex items-end gap-0.5 px-6">
+        <div className="flex items-end gap-0.5 overflow-x-auto px-4 sm:px-6">
           {VIEW_TABS.map(({ label, icon: Icon }, i) => (
             <button
               key={label}
@@ -741,6 +783,20 @@ export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, on
         </div>
       </header>
 
+      {/* ── Filter Panel ───────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {filterPanelOpen && activeTab !== 4 && (
+          <FilterSearchPanel
+            isOpen={filterPanelOpen}
+            filters={filters}
+            onFiltersChange={setFilters}
+            availableMembers={allMembers}
+            availableLabels={allLabels}
+            resultCount={{ showing: matchingTasks, total: totalTasks }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Board / Statistics Area ────────────────────────────────────────── */}
       {activeTab === 4 ? (
         <BoardStatistics />
@@ -748,18 +804,14 @@ export function BoardDetail({ onBack, onCreateTask, onInvite, onManageLabels, on
         <main className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
           <div className="flex gap-4 h-full px-6 py-5 min-w-max items-stretch">
 
-            {[...COLUMNS, ...extraColumns].map((col) => (
-              <KanbanColumn key={col.id} col={col} onCardClick={() => onTaskClick?.()} />
+            {allColumns.map((col) => (
+              <KanbanColumn
+                key={col.id}
+                col={col}
+                onCardClick={() => onTaskClick?.()}
+                isTaskMatch={hasActiveFilters ? matchesFilters : undefined}
+              />
             ))}
-
-            {/* Style 2: Create Column Form — comparison preview (always visible) */}
-            <CreateColumnForm
-              externalRef={comparisonInputRef}
-              initialName="Backlog"
-              initialColor="#64748b"
-              onAdd={handleAddColumn}
-              onCancel={() => {}}
-            />
 
             {/* Style 1: Add Column Button — or toggled form */}
             {btnFormOpen ? (
