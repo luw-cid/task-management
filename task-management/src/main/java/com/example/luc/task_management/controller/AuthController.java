@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -32,6 +34,18 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Login successfully", authService.login(request)));
+    }
+
+    @Operation(summary = "Refresh token")
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+            @RequestBody Map<String, String> request) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Refresh token successfully",
+                        authService.refreshToken(request.get("refreshToken"))
+                )
+        );
     }
 
     @Operation(summary = "Logout")
