@@ -4,6 +4,7 @@ import {
   X, Bug, Star, ArrowUp, Zap, Flame, ChevronUp, Minus, ChevronDown,
   Calendar, Search, Plus, Check, Tag, User,
 } from "lucide-react";
+import type { BoardMember, Column, Label as BoardLabel } from "../../types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,10 @@ export interface NewTask {
 
 interface Props {
   onClose: () => void;
-  onCreate?: (task: NewTask) => void;
+  onCreate?: (task: NewTask) => Promise<void>;
+  columns?: Column[];
+  members?: BoardMember[];
+  availableLabels?: BoardLabel[];
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -48,20 +52,20 @@ const PRIORITY_CONFIG: Record<
   low:      { label: "Low",      Icon: ChevronDown, color: "#94a3b8" },
 };
 
-const COLUMNS = [
+const DEFAULT_COLUMNS = [
   { id: "todo",        label: "To Do",       color: "#64748b" },
   { id: "in-progress", label: "In Progress", color: "#6366f1" },
   { id: "review",      label: "In Review",   color: "#f59e0b" },
   { id: "done",        label: "Done",        color: "#10b981" },
 ];
 
-const MEMBERS = [
+const DEFAULT_MEMBERS = [
   "Alice Johnson", "Sarah Chen", "Tom Wilson",
   "Marcus Webb",  "Priya Nair", "Alex Rivera",
   "Emily Davis",  "Raj Patel",
 ];
 
-const PRESET_LABELS: { label: string; color: string }[] = [
+const DEFAULT_PRESET_LABELS: { label: string; color: string }[] = [
   { label: "Frontend",   color: "#6366f1" },
   { label: "Backend",    color: "#8b5cf6" },
   { label: "Design",     color: "#06b6d4" },
@@ -82,6 +86,14 @@ function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase();
 }
 
+function getColumnColor(name: string) {
+  const normalized = name.trim().toLowerCase();
+  if (normalized.includes("review")) return "#f59e0b";
+  if (normalized.includes("progress") || normalized.includes("doing")) return "#6366f1";
+  if (normalized.includes("done") || normalized.includes("complete")) return "#10b981";
+  return "#64748b";
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function DropdownChevron({ open }: { open: boolean }) {
@@ -95,7 +107,7 @@ function DropdownChevron({ open }: { open: boolean }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CreateTaskModal({ onClose, onCreate }: Props) {
+export function CreateTaskModal({ onClose, onCreate, columns = [], members = [], availableLabels = [] }: Props) {
   // Task type & priority
   const [taskType, setTaskType]   = useState<TaskTypeOption>("FEATURE");
   const [priority, setPriority]   = useState<PriorityOption>("high");
@@ -109,6 +121,8 @@ export function CreateTaskModal({ onClose, onCreate }: Props) {
   const [assignee, setAssignee]         = useState<string | null>(null);
   const [deadline, setDeadline]         = useState("");
   const [labels, setLabels]             = useState<{ label: string; color: string }[]>([]);
+  const [submitError, setSubmitError]   = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dropdown states
   const [columnOpen, setColumnOpen]     = useState(false);
@@ -158,15 +172,23 @@ export function CreateTaskModal({ onClose, onCreate }: Props) {
     if (e.target === overlayRef.current) onClose();
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
       setTitleError("Title is required.");
       titleRef.current?.focus();
       return;
     }
-    onCreate?.({ type: taskType, title: title.trim(), description: description.trim(), column, priority, assignee, deadline, labels });
-    onClose();
+    setSubmitError("");
+    setIsSubmitting(true);
+    try {
+      await onCreate?.({ type: taskType, title: title.trim(), description: description.trim(), column, priority, assignee, deadline, labels });
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to create task.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function toggleLabel(l: { label: string; color: string }) {
@@ -177,12 +199,31 @@ export function CreateTaskModal({ onClose, onCreate }: Props) {
     );
   }
 
-  const currentCol     = COLUMNS.find((c) => c.id === column)!;
+  const columnOptions = columns.length > 0
+    ? columns.map((item) => ({
+        id: String(item.id),
+        label: item.name,
+        color: getColumnColor(item.name),
+      }))
+    : DEFAULT_COLUMNS;
+  const memberOptions = members.length > 0
+    ? members.map((member) => member.fullName)
+    : DEFAULT_MEMBERS;
+  const labelOptions = availableLabels.length > 0
+    ? availableLabels.map((label) => ({ label: label.name, color: label.color }))
+    : DEFAULT_PRESET_LABELS;
+  const currentCol = columnOptions.find((c) => c.id === column) ?? columnOptions[0];
   const currentPriority = PRIORITY_CONFIG[priority];
   const PIcon          = currentPriority.Icon;
-  const filteredMembers = MEMBERS.filter((m) =>
+  const filteredMembers = memberOptions.filter((m) =>
     m.toLowerCase().includes(assigneeSearch.toLowerCase())
   );
+
+  useEffect(() => {
+    if (columnOptions.length > 0 && !columnOptions.some((option) => option.id === column)) {
+      setColumn(columnOptions[0].id);
+    }
+  }, [column, columnOptions]);
 
   return (
     <motion.div
@@ -319,7 +360,7 @@ export function CreateTaskModal({ onClose, onCreate }: Props) {
                   </button>
                   {columnOpen && (
                     <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-[#334155] bg-[#1e293b] shadow-xl shadow-black/50 overflow-hidden">
-                      {COLUMNS.map((col) => (
+                      {columnOptions.map((col) => (
                         <button
                           key={col.id}
                           type="button"
@@ -528,7 +569,7 @@ export function CreateTaskModal({ onClose, onCreate }: Props) {
                       Preset Labels
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {PRESET_LABELS.map((l) => {
+                      {labelOptions.map((l) => {
                         const isActive = labels.some((x) => x.label === l.label);
                         return (
                           <button
@@ -552,6 +593,7 @@ export function CreateTaskModal({ onClose, onCreate }: Props) {
                 )}
               </div>
             </div>
+            {submitError && <p className="text-xs text-[#ef4444]">{submitError}</p>}
           </div>
 
           {/* ── Footer ───────────────────────────────────────────────────── */}
@@ -577,11 +619,12 @@ export function CreateTaskModal({ onClose, onCreate }: Props) {
                 Cancel
               </button>
               <button
+                disabled={isSubmitting}
                 type="submit"
-                className="flex items-center gap-2 rounded-lg bg-[#6366f1] px-5 py-2 text-sm font-medium text-white hover:bg-[#5254cc] active:scale-[0.98] transition-all shadow shadow-[#6366f1]/30"
+                className="flex items-center gap-2 rounded-lg bg-[#6366f1] px-5 py-2 text-sm font-medium text-white hover:bg-[#5254cc] active:scale-[0.98] transition-all shadow shadow-[#6366f1]/30 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Create Task
+                {isSubmitting ? "Creating..." : "Create Task"}
               </button>
             </div>
           </div>

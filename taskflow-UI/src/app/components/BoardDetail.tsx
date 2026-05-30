@@ -17,7 +17,7 @@ type Priority  = "low" | "medium" | "high" | "urgent";
 
 interface TaskLabel { text: string; color: string; }
 
-interface BoardTask {
+export interface BoardTask {
   id: string;
   type: TaskType;
   title: string;
@@ -32,7 +32,7 @@ interface BoardTask {
   isDragging?: boolean;
 }
 
-interface BoardColumn {
+export interface BoardColumn {
   id: string;
   title: string;
   dotColor: string;
@@ -412,7 +412,7 @@ function KanbanColumn({
   col: BoardColumn;
   draggedTask: DraggedTask | null;
   dragOverColumnId: string | null;
-  onCardClick: () => void;
+  onCardClick: (taskId: string) => void;
   onTaskDragStart: (taskId: string, sourceColumnId: string, event: React.DragEvent<HTMLDivElement>) => void;
   onTaskDragEnd: () => void;
   onColumnDragOver: (columnId: string) => void;
@@ -487,7 +487,7 @@ function KanbanColumn({
               key={task.id}
               task={task}
               isDone={col.isDone}
-              onClick={onCardClick}
+              onClick={() => onCardClick(task.id)}
               onDragStart={(event) => onTaskDragStart(task.id, col.id, event)}
               onDragEnd={onTaskDragEnd}
               isDragSource={draggedTask?.taskId === task.id}
@@ -703,20 +703,34 @@ export function BoardDetail({
   onBoardSettings,
   initialActiveTab = 0,
   onTabChange,
+  boardId,
+  boardName,
+  members = [],
+  columnsData = COLUMNS,
+  isLoading = false,
+  onCreateColumn,
+  onMoveTask,
 }: {
   onBack: () => void;
   onCreateTask?: () => void;
   onInvite?: () => void;
   onManageLabels?: () => void;
-  onTaskClick?: () => void;
+  onTaskClick?: (taskId: string) => void;
   onBoardSettings?: () => void;
   initialActiveTab?: number;
   onTabChange?: (tabIndex: number) => void;
+  boardId?: number | null;
+  boardName?: string;
+  members?: string[];
+  columnsData?: BoardColumn[];
+  isLoading?: boolean;
+  onCreateColumn?: (name: string, color: string) => Promise<void>;
+  onMoveTask?: (taskId: string, targetColumnId: string) => Promise<void>;
 }) {
   const [activeTab,    setActiveTab]    = useState(initialActiveTab);
   const [starred,      setStarred]      = useState(false);
   const [membersOpen,  setMembersOpen]  = useState(false);
-  const [columns,      setColumns]      = useState<BoardColumn[]>(COLUMNS);
+  const [columns,      setColumns]      = useState<BoardColumn[]>(columnsData);
   const [draggedTask,  setDraggedTask]  = useState<DraggedTask | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const [btnFormOpen,  setBtnFormOpen]  = useState(false);
@@ -734,10 +748,20 @@ export function BoardDetail({
     setActiveTab(initialActiveTab);
   }, [initialActiveTab]);
 
-  const visibleMembers = MEMBERS.slice(0, 4);
-  const extraCount     = MEMBERS.length - visibleMembers.length;
+  useEffect(() => {
+    setColumns(columnsData);
+  }, [columnsData]);
 
-  function handleAddColumn(name: string, color: string) {
+  const boardMembers = members.length > 0 ? members : MEMBERS;
+  const visibleMembers = boardMembers.slice(0, 4);
+  const extraCount     = boardMembers.length - visibleMembers.length;
+
+  async function handleAddColumn(name: string, color: string) {
+    if (onCreateColumn) {
+      await onCreateColumn(name, color);
+      return;
+    }
+
     setColumns((prev) => [
       ...prev,
       { id: `col-${Date.now()}`, title: name, dotColor: color, tasks: [] },
@@ -773,7 +797,11 @@ export function BoardDetail({
     setColumns(moveResult.columns);
 
     try {
-      await persistTaskMove(draggedTask.taskId, targetColumnId, moveResult.targetIndex);
+      if (onMoveTask) {
+        await onMoveTask(draggedTask.taskId, targetColumnId);
+      } else {
+        await persistTaskMove(draggedTask.taskId, targetColumnId, moveResult.targetIndex);
+      }
     } catch {
       setColumns(previousColumns);
     }
@@ -850,7 +878,7 @@ export function BoardDetail({
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#6366f1]/20 flex-shrink-0">
                 <LayoutGrid className="h-4 w-4 text-[#6366f1]" />
               </div>
-              <h1 className="text-base font-semibold text-[#f1f5f9] truncate">Project Alpha 🚀</h1>
+              <h1 className="text-base font-semibold text-[#f1f5f9] truncate">{boardName ?? "Project Alpha"}</h1>
               <button onClick={() => setStarred((s) => !s)} className="flex-shrink-0 hover:scale-110 transition-transform" title={starred ? "Remove from favourites" : "Add to favourites"}>
                 <Star className="h-4 w-4 transition-colors" style={{ color: starred ? "#f59e0b" : "#475569", fill: starred ? "#f59e0b" : "none" }} />
               </button>
@@ -950,7 +978,11 @@ export function BoardDetail({
 
       {/* ── Board / Statistics Area ────────────────────────────────────────── */}
       {activeTab === 4 ? (
-        <BoardStatistics />
+        <BoardStatistics boardId={boardId ?? null} />
+      ) : isLoading ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-[#64748b]">
+          Loading board...
+        </div>
       ) : (
         <main className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
           <div className="flex gap-4 h-full px-6 py-5 min-w-max items-stretch">
@@ -961,7 +993,7 @@ export function BoardDetail({
                 col={col}
                 draggedTask={draggedTask}
                 dragOverColumnId={dragOverColumnId}
-                onCardClick={() => onTaskClick?.()}
+                onCardClick={(taskId) => onTaskClick?.(taskId)}
                 onTaskDragStart={handleTaskDragStart}
                 onTaskDragEnd={handleTaskDragEnd}
                 onColumnDragOver={setDragOverColumnId}
@@ -974,7 +1006,7 @@ export function BoardDetail({
             {/* Style 1: Add Column Button — or toggled form */}
             {btnFormOpen ? (
               <CreateColumnForm
-                onAdd={(name, color) => { handleAddColumn(name, color); setBtnFormOpen(false); }}
+                onAdd={async (name, color) => { await handleAddColumn(name, color); setBtnFormOpen(false); }}
                 onCancel={() => setBtnFormOpen(false)}
               />
             ) : (

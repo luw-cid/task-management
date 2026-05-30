@@ -26,7 +26,7 @@ export interface NewBoard {
 
 interface Props {
   onClose: () => void;
-  onCreate?: (board: NewBoard) => void;
+  onCreate?: (board: NewBoard) => Promise<void>;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -37,6 +37,8 @@ export function CreateBoardModal({ onClose, onCreate }: Props) {
   const [color, setColor]             = useState("#6366f1");
   const [visibility, setVisibility]   = useState<Visibility>("private");
   const [nameError, setNameError]     = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const nameRef    = useRef<HTMLInputElement>(null);
 
@@ -54,12 +56,21 @@ export function CreateBoardModal({ onClose, onCreate }: Props) {
     if (e.target === overlayRef.current) onClose();
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { setNameError("Board name is required."); nameRef.current?.focus(); return; }
     setNameError("");
-    onCreate?.({ name: name.trim(), description: description.trim(), color, visibility });
-    onClose();
+    setSubmitError("");
+    setIsSubmitting(true);
+
+    try {
+      await onCreate?.({ name: name.trim(), description: description.trim(), color, visibility });
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to create board.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const visibilityDesc =
@@ -249,6 +260,9 @@ export function CreateBoardModal({ onClose, onCreate }: Props) {
               {/* Contextual hint */}
               <p className="text-[11px] text-[#64748b] leading-relaxed">{visibilityDesc}</p>
             </div>
+            {submitError && (
+              <p className="text-xs text-[#ef4444]">{submitError}</p>
+            )}
           </div>
 
           {/* ── Footer ───────────────────────────────────────────────────── */}
@@ -261,12 +275,13 @@ export function CreateBoardModal({ onClose, onCreate }: Props) {
               Cancel
             </button>
             <button
+              disabled={isSubmitting}
               type="submit"
-              className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium text-white transition-all active:scale-[0.98] shadow"
+              className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium text-white transition-all active:scale-[0.98] shadow disabled:cursor-not-allowed disabled:opacity-70"
               style={{ backgroundColor: color, boxShadow: `0 2px 12px -2px ${color}55` }}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
-              Create Board
+              {isSubmitting ? "Creating..." : "Create Board"}
             </button>
           </div>
         </form>
