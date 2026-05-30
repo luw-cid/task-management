@@ -29,6 +29,7 @@ public class SecuriryConfig {
     private static final String[] PUBLIC_URLS = {
             "/api/auth/**",
             "/swagger-ui/**",
+            "/swagger-ui.html",
             "/v3/api-docs/**",
             "/ws/**",
             "/ws/info/**"      // ← SockJS info endpoint

@@ -7,6 +7,8 @@ import com.example.luc.task_management.dto.request.task.UpdateTaskRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.TaskResponse;
 import com.example.luc.task_management.service.TaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,11 +19,16 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/boards/{boardId}/tasks")
 @RequiredArgsConstructor
+@Tag(name = "Task", description = "Manage Task – Factory, Strategy, Command, Observer Pattern")
 public class TaskController {
 
     private final TaskService taskService;
 
     @PostMapping
+    @Operation(
+            summary = "Create new task",
+            description = "Use the Factory Pattern to automatically set priority order by type"
+    )
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(
             @PathVariable Long boardId,
             @PathVariable Long taskId,
@@ -30,6 +37,10 @@ public class TaskController {
     }
 
     @GetMapping
+    @Operation(
+            summary = "Get list task",
+            description = "Use the Strategy Pattern to sort. sortBy: deadline|priority|assignee|createdAt"
+    )
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getTaskByBoard(
             @PathVariable Long boardId,
             @RequestParam (defaultValue = "createdAt") String sortBy) {
@@ -59,6 +70,10 @@ public class TaskController {
     }
 
     @PutMapping("/{taskId}/move")
+    @Operation(
+            summary = "Move task to difference column",
+            description = "Use the Command Pattern to record history + Observer Pattern to send notifications"
+    )
     public ResponseEntity<ApiResponse<TaskResponse>> moveTask (
             @PathVariable Long boardId,
             @PathVariable Long taskId,

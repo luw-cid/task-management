@@ -1,5 +1,15 @@
 #spring.application.name=task-management
 spring:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    groups-order: ASC
+    operationsSorter: method
+    disable-swagger-default-url: true
+    tags-sorter: alpha
+  show-actuator: false
   application:
     name: task-management
   datasource:

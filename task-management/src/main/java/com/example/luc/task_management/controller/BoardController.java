@@ -7,6 +7,8 @@ import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.BoardMemberResponse;
 import com.example.luc.task_management.dto.response.BoardResponse;
 import com.example.luc.task_management.service.BoardService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,11 +19,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/boards")
 @RequiredArgsConstructor
+@Tag(name = "Board", description = "Manage Board")
 public class BoardController {
 
     private final BoardService boardService;
 
     // POST /api/boards – Create new board
+    @Operation(summary = "Create new Board")
     @PostMapping
     public ResponseEntity<ApiResponse<BoardResponse>> createBoard (@Valid @RequestBody CreateBoardRequest request) {
         return ResponseEntity.status(201)
@@ -29,12 +33,14 @@ public class BoardController {
     }
 
     // GET /api/boards – Get my board list
+    @Operation(summary = "Get my list board")
     @GetMapping
     public ResponseEntity<ApiResponse<List<BoardResponse>>> getMyBoards() {
         return ResponseEntity.ok(ApiResponse.success(boardService.getMyBoards()));
     }
 
     // PUT /api/boards/{id} – Update board
+    @Operation(summary = "Update board")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<BoardResponse>> updateBoard (
             @PathVariable Long id,
@@ -43,6 +49,7 @@ public class BoardController {
     }
 
     // DELETE /api/boards/{id} – Delete board
+    @Operation(summary = "Delete board")
     @DeleteMapping
     public ResponseEntity<ApiResponse<BoardResponse>> deleteBoard (@PathVariable Long id) {
         boardService.deleteBoard(id);
@@ -50,6 +57,7 @@ public class BoardController {
     }
 
     // POST /api/boards/{id}/members – Invite member
+    @Operation(summary = "Invite member to my board")
     @PostMapping("/{id}/members")
     public ResponseEntity<ApiResponse<BoardMemberResponse>> inviteMember (@PathVariable Long id,
                                                                                    @Valid @RequestBody InviteMemberRequest request) {
@@ -58,12 +66,14 @@ public class BoardController {
     }
 
     // GET /api/boards/{id}/members – Get member list
+    @Operation(summary = "Get members in board")
     @GetMapping("/{id}/members")
     public ResponseEntity<ApiResponse<List<BoardMemberResponse>>> getBoardMembers(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(boardService.getBoardMembers(id)));
     }
 
     // DELETE /api/boards/{id}/members/{userId} – Delete Member
+    @Operation(summary = "Delete board")
     @DeleteMapping("/{id}/members/{userId}")
     public ResponseEntity<ApiResponse<Void>> removeMember(@PathVariable Long id, @PathVariable Long userId) {
         boardService.removeMember(id, userId);
