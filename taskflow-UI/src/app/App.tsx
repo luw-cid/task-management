@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Zap, Mail, Lock, Eye, EyeOff, User, ArrowRight,
@@ -13,7 +13,7 @@ import { TaskDetailPanel } from "./components/TaskDetailPanel";
 import { NotificationDropdown } from "./components/NotificationDropdown";
 import { SettingsPage } from "./components/SettingsPage";
 import { BoardMembersModal } from "./components/BoardMembersModal";
-import { BoardDetail } from "./components/BoardDetail";
+import { BoardDetail, type BoardColumn } from "./components/BoardDetail";
 import { CreateBoardModal } from "./components/CreateBoardModal";
 import { CreateTaskModal } from "./components/CreateTaskModal";
 import { InviteMemberModal } from "./components/InviteMemberModal";
@@ -21,6 +21,8 @@ import { ManageLabelsModal } from "./components/ManageLabelsModal";
 import { BoardSettingsModal } from "./components/BoardSettingsModal";
 import { NoNotificationsState } from "./components/EmptyStates";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { authApi, boardsApi, clearAuthTokens, columnsApi, labelsApi, tasksApi, usersApi } from "../api";
+import type { Column, CreateBoardRequest, LoginRequest, RegisterRequest, Task, TaskStatus, UserProfile } from "../types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -34,10 +36,14 @@ const queryClient = new QueryClient();
 const ROUTES: Record<AppView, string> = {
   home: "/",
   tasks: "/tasks",
-  board: "/boards/project-alpha",
+  board: "/boards",
   notifications: "/notifications",
   settings: "/profile",
 };
+
+function getBoardRoute(boardId: number | string) {
+  return `/boards/${boardId}`;
+}
 
 function getViewFromPath(pathname: string): AppView {
   if (pathname.startsWith("/tasks")) return "tasks";
@@ -101,6 +107,96 @@ const PRIORITY_STYLES: Record<Priority, { bg: string; text: string }> = {
   high:   { bg: "bg-[#6366f1]/10", text: "text-[#6366f1]" },
   urgent: { bg: "bg-[#ef4444]/10", text: "text-[#ef4444]" },
 };
+
+type DashboardBoard = {
+  id: number;
+  name: string;
+  description: string;
+  color: string;
+  members: string[];
+  tasks: number;
+  updated: string;
+  progress: number;
+  memberCount: number;
+};
+
+type DashboardTask = {
+  id: string;
+  boardId: number;
+  title: string;
+  board: string;
+  boardColor: string;
+  priority: Priority;
+  deadline: string;
+  assignee: string;
+  done: boolean;
+};
+
+function getBoardColor(boardId: number) {
+  const colors = ["#6366f1", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ef4444", "#ec4899"];
+  return colors[boardId % colors.length];
+}
+
+function toPriority(priority: Task["priority"]): Priority {
+  switch (priority) {
+    case "LOW":
+      return "low";
+    case "MEDIUM":
+      return "medium";
+    case "HIGH":
+      return "high";
+    case "CRITICAL":
+      return "urgent";
+    default:
+      return "medium";
+  }
+}
+
+function formatUpdated(value: string) {
+  return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function getStatusFromColumnName(name: string): TaskStatus {
+  const normalized = name.trim().toLowerCase();
+  if (normalized.includes("review")) return "IN_REVIEW";
+  if (normalized.includes("progress") || normalized.includes("doing")) return "IN_PROGRESS";
+  if (normalized.includes("done") || normalized.includes("complete")) return "DONE";
+  return "TODO";
+}
+
+function mapTaskToBoardColumnTask(task: Task): BoardColumn["tasks"][number] {
+  return {
+    id: String(task.id),
+    type: task.type,
+    title: task.title,
+    description: task.description ?? "",
+    labels: task.labels.map((label) => ({
+      text: label.name,
+      color: label.color,
+    })),
+    assignees: task.assigneeName ? [task.assigneeName] : [],
+    priority: toPriority(task.priority),
+    deadline: task.deadline ?? new Date().toISOString(),
+    subtasks: {
+      done: task.subtaskCompleted,
+      total: task.subtaskTotal,
+    },
+    attachments: 0,
+    comments: 0,
+  };
+}
+
+function buildBoardColumns(columns: Column[], tasks: Task[]): BoardColumn[] {
+  return columns.map((column) => ({
+    id: String(column.id),
+    title: column.name,
+    dotColor: getBoardColor(column.id),
+    isDone: getStatusFromColumnName(column.name) === "DONE",
+    tasks: tasks
+      .filter((task) => task.columnId === column.id)
+      .map(mapTaskToBoardColumnTask),
+  }));
+}
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -169,7 +265,15 @@ function KanbanIllustration() {
   );
 }
 
-function AuthPanel({ view, onSwitch, onSignIn }: { view: AuthView; onSwitch: () => void; onSignIn: () => void }) {
+function AuthPanel({
+  view,
+  onSwitch,
+  onSignIn,
+}: {
+  view: AuthView;
+  onSwitch: () => void;
+  onSignIn: (payload: LoginRequest | RegisterRequest) => Promise<void>;
+}) {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPw, setLoginPw] = useState("");
   const [showLoginPw, setShowLoginPw] = useState(false);
@@ -180,8 +284,52 @@ function AuthPanel({ view, onSwitch, onSignIn }: { view: AuthView; onSwitch: () 
   const [showSPw, setShowSPw] = useState(false);
   const [showCPw, setShowCPw] = useState(false);
   const [confirmErr, setConfirmErr] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const base = "w-full rounded-lg border border-border bg-input-background py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all";
+
+  async function handleLoginSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitError("");
+    setIsSubmitting(true);
+
+    try {
+      await onSignIn({
+        email: loginEmail,
+        password: loginPw,
+      });
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to sign in");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleRegisterSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (signupPw !== confirmPw) {
+      setConfirmErr("Passwords do not match");
+      return;
+    }
+
+    setConfirmErr("");
+    setSubmitError("");
+    setIsSubmitting(true);
+
+    try {
+      await onSignIn({
+        email: signupEmail,
+        password: signupPw,
+        fullName: name,
+      });
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to create account");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="w-full max-w-sm">
@@ -195,7 +343,7 @@ function AuthPanel({ view, onSwitch, onSignIn }: { view: AuthView; onSwitch: () 
             <h1 className="text-2xl font-semibold text-foreground mb-1">Welcome back</h1>
             <p className="text-sm text-muted-foreground">Sign in to your account</p>
           </div>
-          <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); onSignIn(); }}>
+          <form className="flex flex-col gap-4" onSubmit={handleLoginSubmit}>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Email</label>
               <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" /><input type="email" placeholder="you@company.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className={base} /></div>
@@ -207,7 +355,8 @@ function AuthPanel({ view, onSwitch, onSignIn }: { view: AuthView; onSwitch: () 
               </div>
               <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" /><input type={showLoginPw ? "text" : "password"} placeholder="Enter your password" value={loginPw} onChange={(e) => setLoginPw(e.target.value)} className={base} /><div className="absolute right-3 top-1/2 -translate-y-1/2"><EyeToggle show={showLoginPw} onToggle={() => setShowLoginPw(!showLoginPw)} /></div></div>
             </div>
-            <button type="submit" className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 active:scale-[0.99] transition-all shadow-lg shadow-primary/25">Sign In <ArrowRight className="h-4 w-4" /></button>
+            {submitError && <p className="text-xs text-[#ef4444]">{submitError}</p>}
+            <button disabled={isSubmitting} type="submit" className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 active:scale-[0.99] transition-all shadow-lg shadow-primary/25 disabled:cursor-not-allowed disabled:opacity-70">{isSubmitting ? "Signing In..." : <>Sign In <ArrowRight className="h-4 w-4" /></>}</button>
           </form>
           <div className="flex items-center gap-3 my-6"><div className="flex-1 h-px bg-border" /><span className="text-xs text-muted-foreground">or</span><div className="flex-1 h-px bg-border" /></div>
           <p className="text-center text-sm text-muted-foreground">Don{"'"}t have an account?{" "}<button onClick={onSwitch} className="text-primary hover:text-primary/80 font-medium transition-colors">Sign up</button></p>
@@ -218,12 +367,13 @@ function AuthPanel({ view, onSwitch, onSignIn }: { view: AuthView; onSwitch: () 
             <h1 className="text-2xl font-semibold text-foreground mb-1">Create an account</h1>
             <p className="text-sm text-muted-foreground">Start managing your team{"'"}s work</p>
           </div>
-          <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (signupPw !== confirmPw) { setConfirmErr("Passwords do not match"); return; } setConfirmErr(""); onSignIn(); }}>
+          <form className="flex flex-col gap-4" onSubmit={handleRegisterSubmit}>
             <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-foreground">Full name</label><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" /><input placeholder="Alex Rivera" value={name} onChange={(e) => setName(e.target.value)} className={base} /></div></div>
             <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-foreground">Email</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" /><input type="email" placeholder="you@company.com" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className={base} /></div></div>
             <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-foreground">Password</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" /><input type={showSPw ? "text" : "password"} placeholder="Create a password" value={signupPw} onChange={(e) => setSignupPw(e.target.value)} className={base} /><div className="absolute right-3 top-1/2 -translate-y-1/2"><EyeToggle show={showSPw} onToggle={() => setShowSPw(!showSPw)} /></div></div><PasswordStrengthBar password={signupPw} /></div>
             <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-foreground">Confirm password</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" /><input type={showCPw ? "text" : "password"} placeholder="Repeat your password" value={confirmPw} onChange={(e) => { setConfirmPw(e.target.value); if (confirmErr) setConfirmErr(""); }} className={`${base} ${confirmErr ? "border-[#ef4444]" : ""}`} /><div className="absolute right-3 top-1/2 -translate-y-1/2"><EyeToggle show={showCPw} onToggle={() => setShowCPw(!showCPw)} /></div></div>{confirmErr && <p className="text-xs text-[#ef4444]">{confirmErr}</p>}</div>
-            <button type="submit" className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 active:scale-[0.99] transition-all shadow-lg shadow-primary/25">Create Account <ArrowRight className="h-4 w-4" /></button>
+            {submitError && <p className="text-xs text-[#ef4444]">{submitError}</p>}
+            <button disabled={isSubmitting} type="submit" className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 active:scale-[0.99] transition-all shadow-lg shadow-primary/25 disabled:cursor-not-allowed disabled:opacity-70">{isSubmitting ? "Creating Account..." : <>Create Account <ArrowRight className="h-4 w-4" /></>}</button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-6">Already have an account?{" "}<button onClick={onSwitch} className="text-primary hover:text-primary/80 font-medium transition-colors">Sign in</button></p>
         </>
@@ -232,7 +382,13 @@ function AuthPanel({ view, onSwitch, onSignIn }: { view: AuthView; onSwitch: () 
   );
 }
 
-function LoginPage({ view, onSignIn }: { view: AuthView; onSignIn: () => void }) {
+function LoginPage({
+  view,
+  onSignIn,
+}: {
+  view: AuthView;
+  onSignIn: (payload: LoginRequest | RegisterRequest) => Promise<void>;
+}) {
   const navigate = useNavigate();
   return (
     <div className="min-h-screen flex bg-background font-['Inter']">
@@ -268,6 +424,8 @@ function Sidebar({
   collapsed,
   onToggle,
   onNav,
+  boards,
+  currentUser,
   onOpenBoard,
   onCreateBoard,
   onLogout,
@@ -276,7 +434,9 @@ function Sidebar({
   collapsed: boolean;
   onToggle: () => void;
   onNav: (n: NavItem) => void;
-  onOpenBoard: () => void;
+  boards: DashboardBoard[];
+  currentUser: UserProfile | null;
+  onOpenBoard: (boardId: number) => void;
   onCreateBoard: () => void;
   onLogout: () => void;
 }) {
@@ -290,6 +450,9 @@ function Sidebar({
   const labelClass = `overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${
     collapsed ? "max-w-0 opacity-0 translate-x-1" : "max-w-[180px] opacity-100 translate-x-0"
   }`;
+  const userName = currentUser?.fullName ?? "Your Profile";
+  const userEmail = currentUser?.email ?? "";
+  const userInitials = getInitials(userName).slice(0, 2) || "TF";
 
   return (
     <aside
@@ -319,10 +482,16 @@ function Sidebar({
               ? "group grid h-10 w-full place-items-center rounded-lg px-0 hover:bg-secondary/40 transition-colors"
               : "group flex w-full items-center gap-3 rounded-lg px-2 py-2 hover:bg-secondary/40 transition-colors"
           }
-          title={collapsed ? "Alice Johnson" : undefined}
+          title={collapsed ? userName : undefined}
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white flex-shrink-0" style={{ backgroundColor: "#6366f1" }}>AJ</div>
-          <div className={`flex-1 text-left min-w-0 ${labelClass}`}><p className="text-sm font-medium text-foreground truncate">Alice Johnson</p><p className="text-xs text-muted-foreground truncate">alice@taskflow.io</p></div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: "#6366f1" }}>
+            {currentUser?.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt={userName} className="h-full w-full object-cover" />
+            ) : (
+              userInitials
+            )}
+          </div>
+          <div className={`flex-1 text-left min-w-0 ${labelClass}`}><p className="text-sm font-medium text-foreground truncate">{userName}</p><p className="text-xs text-muted-foreground truncate">{userEmail}</p></div>
           <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-all duration-300 ${collapsed ? "w-0 opacity-0" : "opacity-100"}`} />
         </button>
       </div>
@@ -368,10 +537,10 @@ function Sidebar({
         </button>
         {(boardsOpen || collapsed) && (
           <div className={`flex flex-col ${collapsed ? "gap-3 pt-2" : "gap-0.5"}`}>
-            {MY_BOARDS.map((board) => (
+            {boards.map((board) => (
               <button
                 key={board.id}
-                onClick={onOpenBoard}
+                onClick={() => onOpenBoard(board.id)}
                 title={collapsed ? board.name : undefined}
                 className={`w-full flex items-center gap-2.5 rounded-lg hover:bg-secondary/40 transition-colors group ${
                   collapsed ? "h-8 justify-center px-0 py-0" : "px-3 py-2"
@@ -379,7 +548,7 @@ function Sidebar({
               >
                 <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: board.color }} />
                 <span className={`flex-1 text-left text-sm text-muted-foreground group-hover:text-foreground transition-colors truncate ${labelClass}`}>{board.name}</span>
-                <div className={`flex items-center gap-1 text-xs text-muted-foreground/60 ${labelClass}`}><Users className="h-3 w-3" /><span>{board.members}</span></div>
+                <div className={`flex items-center gap-1 text-xs text-muted-foreground/60 ${labelClass}`}><Users className="h-3 w-3" /><span>{board.memberCount}</span></div>
               </button>
             ))}
           </div>
@@ -429,7 +598,7 @@ function StatCard({ label, value, icon: Icon, color, sub }: { label: string; val
   );
 }
 
-function BoardCard({ board, onClick }: { board: typeof RECENT_BOARDS[0]; onClick: () => void }) {
+function BoardCard({ board, onClick }: { board: DashboardBoard; onClick: () => void }) {
   return (
     <div onClick={onClick} className="group flex flex-col rounded-xl border border-border bg-card overflow-hidden hover:border-border/60 hover:shadow-lg hover:shadow-black/20 transition-all cursor-pointer">
       <div className="h-1.5 w-full" style={{ backgroundColor: board.color }} />
@@ -458,7 +627,7 @@ function BoardCard({ board, onClick }: { board: typeof RECENT_BOARDS[0]; onClick
   );
 }
 
-function TaskRow({ task }: { task: typeof MY_TASKS[0] }) {
+function TaskRow({ task }: { task: DashboardTask }) {
   const [done, setDone] = useState(task.done);
   const p = PRIORITY_STYLES[task.priority];
   const isOverdue = !done && new Date(task.deadline) < new Date();
@@ -474,8 +643,22 @@ function TaskRow({ task }: { task: typeof MY_TASKS[0] }) {
   );
 }
 
-function DashboardHome({ onOpenBoard, onCreateTask }: { onOpenBoard: () => void; onCreateTask: () => void }) {
+function DashboardHome({
+  boards,
+  tasks,
+  onOpenBoard,
+  onCreateTask,
+}: {
+  boards: DashboardBoard[];
+  tasks: DashboardTask[];
+  onOpenBoard: (boardId: number) => void;
+  onCreateTask: () => void;
+}) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((task) => task.done).length;
+  const inProgressTasks = tasks.filter((task) => !task.done).length;
+  const overdueTasks = tasks.filter((task) => !task.done && new Date(task.deadline) < new Date()).length;
   return (
     <div className="flex flex-col gap-8 px-8 py-8 w-full">
       <div className="flex items-start justify-between gap-4">
@@ -483,15 +666,15 @@ function DashboardHome({ onOpenBoard, onCreateTask }: { onOpenBoard: () => void;
         <button onClick={onCreateTask} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow shadow-primary/20 flex-shrink-0"><Plus className="h-4 w-4" />New Task</button>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Tasks"  value={24} icon={Hash}          color="#6366f1" sub="Across all boards" />
-        <StatCard label="In Progress"  value={8}  icon={Clock}         color="#f59e0b" sub="Active right now" />
-        <StatCard label="Completed"    value={12} icon={CheckCircle2}  color="#10b981" sub="This sprint" />
-        <StatCard label="Overdue"      value={4}  icon={AlertTriangle} color="#ef4444" sub="Needs attention" />
+        <StatCard label="Total Tasks"  value={totalTasks} icon={Hash}          color="#6366f1" sub="Across all boards" />
+        <StatCard label="In Progress"  value={inProgressTasks}  icon={Clock}         color="#f59e0b" sub="Active right now" />
+        <StatCard label="Completed"    value={completedTasks} icon={CheckCircle2}  color="#10b981" sub="Finished tasks" />
+        <StatCard label="Overdue"      value={overdueTasks}  icon={AlertTriangle} color="#ef4444" sub="Needs attention" />
       </div>
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-foreground">Recent Boards</h2><button className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors">View all <ExternalLink className="h-3.5 w-3.5" /></button></div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {RECENT_BOARDS.map((board) => <BoardCard key={board.id} board={board} onClick={onOpenBoard} />)}
+          {boards.map((board) => <BoardCard key={board.id} board={board} onClick={() => onOpenBoard(board.id)} />)}
         </div>
       </section>
       <section className="flex flex-col gap-4">
@@ -504,7 +687,7 @@ function DashboardHome({ onOpenBoard, onCreateTask }: { onOpenBoard: () => void;
             <span className="text-xs font-medium text-muted-foreground w-8 text-center">Who</span>
             <span className="w-6" />
           </div>
-          <div className="divide-y divide-border/50">{MY_TASKS.map((task) => <TaskRow key={task.id} task={task} />)}</div>
+          <div className="divide-y divide-border/50">{tasks.map((task) => <TaskRow key={task.id} task={task} />)}</div>
           <div className="border-t border-border/50"><button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition-colors"><Plus className="h-4 w-4" />Add a task</button></div>
         </div>
       </section>
@@ -518,14 +701,184 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { boardId = "project-alpha" } = useParams();
+  const queryClient = useQueryClient();
   const [notifOpen, setNotifOpen] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [createTaskOpen,  setCreateTaskOpen]  = useState(false);
   const [inviteMemberOpen,   setInviteMemberOpen]   = useState(false);
   const [manageLabelsOpen,   setManageLabelsOpen]   = useState(false);
   const [boardSettingsOpen,  setBoardSettingsOpen]  = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const boardIdNumber = Number(boardId);
+
+  const boardsQuery = useQuery({
+    queryKey: ["boards"],
+    queryFn: boardsApi.getMyBoards,
+  });
+  const currentUserQuery = useQuery({
+    queryKey: ["current-user-profile"],
+    queryFn: usersApi.getMe,
+  });
+
+  const boards = boardsQuery.data ?? [];
+  const fallbackBoard = boards[0] ?? null;
+  const currentBoard = boards.find((item) => item.id === boardIdNumber) ?? fallbackBoard;
+  const activeBoardId = currentBoard?.id ?? null;
+
+  const boardColumnsQuery = useQuery({
+    queryKey: ["board-columns", activeBoardId],
+    queryFn: () => columnsApi.getByBoard(activeBoardId!),
+    enabled: activeBoardId !== null,
+  });
+
+  const boardTasksQuery = useQuery({
+    queryKey: ["board-tasks", activeBoardId],
+    queryFn: () => tasksApi.getByBoard(activeBoardId!),
+    enabled: activeBoardId !== null,
+  });
+
+  const boardLabelsQuery = useQuery({
+    queryKey: ["board-labels", activeBoardId],
+    queryFn: () => labelsApi.getByBoard(activeBoardId!),
+    enabled: activeBoardId !== null,
+  });
+
+  const allTasksQuery = useQuery({
+    queryKey: ["all-board-tasks", boards.map((item) => item.id)],
+    enabled: boards.length > 0,
+    queryFn: async () => {
+      const taskGroups = await Promise.all(boards.map((item) => tasksApi.getByBoard(item.id)));
+      return taskGroups.flat();
+    },
+  });
+
+  const createBoardMutation = useMutation({
+    mutationFn: (payload: CreateBoardRequest) => boardsApi.createBoard(payload),
+    onSuccess: async (board) => {
+      await queryClient.invalidateQueries({ queryKey: ["boards"] });
+      setCreateBoardOpen(false);
+      navigate(getBoardRoute(board.id));
+    },
+  });
+
+  const createColumnMutation = useMutation({
+    mutationFn: ({ boardId, name }: { boardId: number; name: string }) => columnsApi.create(boardId, { name }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["board-columns", activeBoardId] });
+    },
+  });
+
+  const moveTaskMutation = useMutation({
+    mutationFn: ({
+      boardId,
+      taskId,
+      targetColumnId,
+      columns,
+    }: {
+      boardId: number;
+      taskId: string;
+      targetColumnId: string;
+      columns: Column[];
+    }) => {
+      const targetColumn = columns.find((column) => String(column.id) === targetColumnId);
+      if (!targetColumn) {
+        throw new Error("Target column not found");
+      }
+
+      return tasksApi.move(boardId, Number(taskId), {
+        columnId: targetColumn.id,
+        status: getStatusFromColumnName(targetColumn.name),
+      });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["board-tasks", activeBoardId] }),
+        queryClient.invalidateQueries({ queryKey: ["all-board-tasks"] }),
+      ]);
+    },
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (payload: {
+      boardId: number;
+      columnId: number;
+      type: Task["type"];
+      title: string;
+      description: string;
+      assigneeId: number | null;
+      deadline: string | null;
+      labels: { label: string; color: string }[];
+    }) => {
+      const task = await tasksApi.create(payload.boardId, {
+        title: payload.title,
+        description: payload.description || undefined,
+        type: payload.type,
+        columnId: payload.columnId,
+        assigneeId: payload.assigneeId,
+        deadline: payload.deadline,
+      });
+
+      if (payload.labels.length > 0) {
+        const labels = boardLabelsQuery.data ?? [];
+        await Promise.all(
+          payload.labels.map(async (item) => {
+            const matchedLabel = labels.find((label) => label.name === item.label);
+            if (matchedLabel) {
+              await labelsApi.addToTask(payload.boardId, task.id, matchedLabel.id);
+            }
+          })
+        );
+      }
+
+      return task;
+    },
+    onSuccess: async () => {
+      setCreateTaskOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["board-tasks", activeBoardId] }),
+        queryClient.invalidateQueries({ queryKey: ["all-board-tasks"] }),
+      ]);
+    },
+  });
+
+  const dashboardBoards = useMemo<DashboardBoard[]>(() => {
+    const boardTasks = allTasksQuery.data ?? [];
+    return boards.map((board) => {
+      const tasks = boardTasks.filter((task) => task.boardId === board.id);
+      const completed = tasks.filter((task) => task.status === "DONE").length;
+      return {
+        id: board.id,
+        name: board.name,
+        description: board.description,
+        color: getBoardColor(board.id),
+        members: board.members.map((member) => member.fullName),
+        memberCount: board.memberCount,
+        tasks: tasks.length,
+        updated: formatUpdated(board.updatedAt),
+        progress: tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0,
+      };
+    });
+  }, [allTasksQuery.data, boards]);
+
+  const dashboardTasks = useMemo<DashboardTask[]>(() => {
+    const boardMap = new Map(boards.map((board) => [board.id, board]));
+    return (allTasksQuery.data ?? []).map((task) => {
+      const parentBoard = boardMap.get(task.boardId);
+      return {
+        id: String(task.id),
+        boardId: task.boardId,
+        title: task.title,
+        board: parentBoard?.name ?? "Board",
+        boardColor: getBoardColor(task.boardId),
+        priority: toPriority(task.priority),
+        deadline: task.deadline ?? new Date().toISOString(),
+        assignee: task.assigneeName ?? "Unassigned",
+        done: task.status === "DONE",
+      };
+    });
+  }, [allTasksQuery.data, boards]);
 
   // Which sidebar nav item is highlighted
   const appView = getViewFromPath(location.pathname);
@@ -534,6 +887,17 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     : appView === "notifications" ? "notifications"
     : appView === "settings"      ? "settings"
     : "home";
+
+  const boardColumns = useMemo(
+    () => buildBoardColumns(boardColumnsQuery.data ?? [], boardTasksQuery.data ?? []),
+    [boardColumnsQuery.data, boardTasksQuery.data]
+  );
+
+  useEffect(() => {
+    if (appView === "board" && currentBoard && !Number.isFinite(boardIdNumber)) {
+      navigate(getBoardRoute(currentBoard.id), { replace: true });
+    }
+  }, [appView, boardIdNumber, currentBoard, navigate]);
 
   function handleSidebarNav(n: NavItem) {
     navigate(
@@ -550,6 +914,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     localStorage.removeItem("refreshToken");
     setNotifOpen(false);
     setTaskDetailOpen(false);
+    setSelectedTaskId(null);
     setCreateBoardOpen(false);
     setCreateTaskOpen(false);
     setInviteMemberOpen(false);
@@ -579,7 +944,9 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((value) => !value)}
         onNav={handleSidebarNav}
-        onOpenBoard={() => { navigate(ROUTES.board); setNotifOpen(false); }}
+        boards={dashboardBoards}
+        currentUser={currentUserQuery.data ?? null}
+        onOpenBoard={(nextBoardId) => { navigate(getBoardRoute(nextBoardId)); setNotifOpen(false); }}
         onCreateBoard={() => setCreateBoardOpen(true)}
         onLogout={handleLogout}
       />
@@ -602,10 +969,31 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                 onCreateTask={() => setCreateTaskOpen(true)}
                 onInvite={() => setInviteMemberOpen(true)}
                 onManageLabels={() => setManageLabelsOpen(true)}
-                onTaskClick={() => setTaskDetailOpen(true)}
+                onTaskClick={(taskId) => {
+                  setSelectedTaskId(Number(taskId));
+                  setTaskDetailOpen(true);
+                }}
                 onBoardSettings={() => setBoardSettingsOpen(true)}
                 initialActiveTab={location.pathname.endsWith("/statistics") ? 4 : 0}
                 onTabChange={handleBoardTabChange}
+                boardId={activeBoardId}
+                boardName={currentBoard?.name}
+                members={(currentBoard?.members ?? []).map((member) => member.fullName)}
+                columnsData={boardColumns}
+                isLoading={boardColumnsQuery.isLoading || boardTasksQuery.isLoading}
+                onCreateColumn={async (name) => {
+                  if (!activeBoardId) throw new Error("No active board selected");
+                  await createColumnMutation.mutateAsync({ boardId: activeBoardId, name });
+                }}
+                onMoveTask={async (taskId, targetColumnId) => {
+                  if (!activeBoardId) throw new Error("No active board selected");
+                  await moveTaskMutation.mutateAsync({
+                    boardId: activeBoardId,
+                    taskId,
+                    targetColumnId,
+                    columns: boardColumnsQuery.data ?? [],
+                  });
+                }}
               />
             </motion.div>
           ) : (
@@ -647,10 +1035,14 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                   <div className="w-px h-5 bg-border mx-1" />
                   <button
                     onClick={() => handleSidebarNav("settings")}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity overflow-hidden"
                     style={{ backgroundColor: "#6366f1" }}
                   >
-                    AJ
+                    {currentUserQuery.data?.avatarUrl ? (
+                      <img src={currentUserQuery.data.avatarUrl} alt={currentUserQuery.data.fullName} className="h-full w-full object-cover" />
+                    ) : (
+                      getInitials(currentUserQuery.data?.fullName ?? "TaskFlow").slice(0, 2)
+                    )}
                   </button>
                 </div>
               </header>
@@ -658,7 +1050,12 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
               {/* Scrollable content area */}
               <main className={`flex-1 min-h-0 w-full ${appView === "settings" ? "flex overflow-hidden" : "overflow-y-auto"} ${appView === "notifications" ? "flex flex-col" : ""}`}>
                 {appView === "home" && (
-                  <DashboardHome onOpenBoard={() => navigate(ROUTES.board)} onCreateTask={() => setCreateTaskOpen(true)} />
+                  <DashboardHome
+                    boards={dashboardBoards}
+                    tasks={dashboardTasks}
+                    onOpenBoard={(nextBoardId) => navigate(getBoardRoute(nextBoardId))}
+                    onCreateTask={() => setCreateTaskOpen(true)}
+                  />
                 )}
                 {appView === "tasks" && (
                   <div className="px-8 py-8 w-full">
@@ -666,7 +1063,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                     <p className="text-sm text-muted-foreground mb-6">All tasks assigned to you across boards</p>
                     <div className="rounded-xl border border-border bg-card overflow-hidden w-full">
                       <div className="divide-y divide-border/50">
-                        {MY_TASKS.map((task) => <TaskRow key={task.id} task={task} />)}
+                        {dashboardTasks.map((task) => <TaskRow key={task.id} task={task} />)}
                       </div>
                     </div>
                   </div>
@@ -694,7 +1091,14 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
         {taskDetailOpen && (
           <TaskDetailPanel
             isOpen={taskDetailOpen}
-            onClose={() => setTaskDetailOpen(false)}
+            onClose={() => {
+              setTaskDetailOpen(false);
+              setSelectedTaskId(null);
+            }}
+            boardId={activeBoardId}
+            taskId={selectedTaskId}
+            columns={boardColumnsQuery.data ?? []}
+            members={currentBoard?.members ?? []}
           />
         )}
       </AnimatePresence>
@@ -704,9 +1108,11 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
         {createBoardOpen && (
           <CreateBoardModal
             onClose={() => setCreateBoardOpen(false)}
-            onCreate={() => {
-              setCreateBoardOpen(false);
-              navigate(ROUTES.board);
+            onCreate={async (board) => {
+              await createBoardMutation.mutateAsync({
+                name: board.name,
+                description: board.description,
+              });
             }}
           />
         )}
@@ -717,7 +1123,23 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
         {createTaskOpen && (
           <CreateTaskModal
             onClose={() => setCreateTaskOpen(false)}
-            onCreate={() => setCreateTaskOpen(false)}
+            columns={boardColumnsQuery.data ?? []}
+            members={currentBoard?.members ?? []}
+            availableLabels={boardLabelsQuery.data ?? []}
+            onCreate={async (task) => {
+              if (!activeBoardId) throw new Error("Please create a board first.");
+              const matchedAssignee = (currentBoard?.members ?? []).find((member) => member.fullName === task.assignee) ?? null;
+              await createTaskMutation.mutateAsync({
+                boardId: activeBoardId,
+                columnId: Number(task.column),
+                type: task.type,
+                title: task.title,
+                description: task.description,
+                assigneeId: matchedAssignee?.userId ?? null,
+                deadline: task.deadline || null,
+                labels: task.labels,
+              });
+            }}
           />
         )}
       </AnimatePresence>
@@ -752,6 +1174,7 @@ export default function App() {
 
   useEffect(() => {
     function handleAuthExpired() {
+      clearAuthTokens();
       setIsAuthenticated(false);
       navigate("/login", { replace: true });
     }
@@ -760,13 +1183,19 @@ export default function App() {
     return () => window.removeEventListener("taskflow:auth-expired", handleAuthExpired);
   }, [navigate]);
 
-  function handleSignIn() {
-    localStorage.setItem("token", localStorage.getItem("token") ?? "taskflow-demo-token");
+  async function handleSignIn(payload: LoginRequest | RegisterRequest) {
+    if ("fullName" in payload) {
+      await authApi.register(payload);
+    } else {
+      await authApi.login(payload);
+    }
+
     setIsAuthenticated(true);
     navigate("/", { replace: true });
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    await authApi.logout();
     setIsAuthenticated(false);
   }
 
