@@ -4,6 +4,7 @@ import com.example.luc.task_management.entity.Task;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter @Setter
 @NoArgsConstructor
@@ -26,6 +27,7 @@ public class TaskResponse {
     private String assigneeAvatar;
     private Long reporterId;
     private String reporterName;
+    private List<LabelResponse> labels;
     private int subtaskTotal;
     private int subtaskCompleted;
     private int completionPercentage;
@@ -53,6 +55,9 @@ public class TaskResponse {
                         ? task.getAssignee().getAvatarUrl() : null)
                 .reporterId(task.getReporter().getId())
                 .reporterName(task.getReporter().getFullName())
+                .labels(task.getLabels().stream()
+                        .map(LabelResponse::fromEntity)
+                        .toList())
                 .subtaskTotal(task.getSubtasks().size())
                 .subtaskCompleted((int) task.getSubtasks().stream()
                         .filter(s -> s.getIsCompleted()).count())

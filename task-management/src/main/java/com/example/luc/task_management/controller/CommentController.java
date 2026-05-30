@@ -29,11 +29,11 @@ public class CommentController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CommentResponse>>> getComments(
-            @PathVariable Long boarId,
+            @PathVariable Long boardId,
             @PathVariable Long taskId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size ) {
-        return ResponseEntity.ok(ApiResponse.success(commentServer.getComments(boarId, taskId, page, size)));
+        return ResponseEntity.ok(ApiResponse.success(commentServer.getComments(boardId, taskId, page, size)));
     }
 
     @PutMapping("/{commentId}")

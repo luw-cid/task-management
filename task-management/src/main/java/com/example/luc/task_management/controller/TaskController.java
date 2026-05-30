@@ -31,7 +31,6 @@ public class TaskController {
     )
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(
             @PathVariable Long boardId,
-            @PathVariable Long taskId,
             @Valid @RequestBody CreateTaskRequest request ) {
         return ResponseEntity.status(201).body(ApiResponse.created(taskService.createTask(boardId, request)));
     }
@@ -49,9 +48,9 @@ public class TaskController {
 
     @GetMapping ("/column/{columnId}")
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getTasksByColumn (
-            @PathVariable Long boarId,
+            @PathVariable Long boardId,
             @PathVariable Long columnId ) {
-        return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByColumn(boarId, columnId)));
+        return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByColumn(boardId, columnId)));
     }
 
     @GetMapping("/{taskId}")
