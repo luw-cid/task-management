@@ -52,6 +52,7 @@ public class TaskService {
     public TaskResponse createTask(Long boardId, CreateTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
         checkBoardMember(boardId, currentUser);
+        checkBoardNotArchive(boardId);
 
         ColumnEntity column = columnRepository.findByIdAndBoardId(request.getColumnId(), boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.COLUMN_NOT_FOUND));
@@ -326,6 +327,15 @@ public class TaskService {
     private void checkBoardMember(Long boardId, User user) {
         if (!boardRepository.isUserInBoard(boardId, user.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private void checkBoardNotArchive(Long boardId) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
+
+        if (board.getIsArchived()) {
+            throw new AppException(ErrorCode.BOARD_ARCHIVED);
         }
     }
 }

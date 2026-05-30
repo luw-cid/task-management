@@ -34,7 +34,8 @@ public class ColumnService {
     @Transactional
     public ColumnResponse createColumn(Long boardId, CreateColumnRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board =getBoardAndCheckAdmin(boardId, currentUser);
+        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        checkBoardNotArchive(boardId);
 
         if (columnRepository.existsByBoardIdAndName(boardId, request.getName())) {
             throw new AppException(ErrorCode.BAD_REQUEST);
@@ -135,5 +136,14 @@ public class ColumnService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
         return board;
+    }
+
+    private void checkBoardNotArchive(Long boardId) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
+
+        if (board.getIsArchived()) {
+            throw new AppException(ErrorCode.BOARD_ARCHIVED);
+        }
     }
 }
