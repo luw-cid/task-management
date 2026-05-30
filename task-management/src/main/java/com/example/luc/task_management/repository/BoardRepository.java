@@ -51,4 +51,13 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             @Param("boardId") Long boardId,
             @Param("userId") Long userId
     );
+
+    @Query("""
+            SELECT DISTINCT b FROM Board b
+            LEFT JOIN b.members bm
+            WHERE (b.owner = :user OR bm.user = :user)
+            AND b.isArchived = true
+            ORDER BY b.updatedAt DESC
+            """)
+    List<Board> findArchivedBoardsByUser(@Param("user") User user);
 }

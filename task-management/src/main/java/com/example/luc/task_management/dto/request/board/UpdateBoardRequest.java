@@ -11,4 +11,6 @@ public class UpdateBoardRequest {
     private String name;
 
     private String description;
+
+    private Boolean isArchived;
 }

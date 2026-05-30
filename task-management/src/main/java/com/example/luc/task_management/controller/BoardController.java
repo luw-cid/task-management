@@ -50,7 +50,7 @@ public class BoardController {
 
     // DELETE /api/boards/{id} – Delete board
     @Operation(summary = "Delete board")
-    @DeleteMapping
+    @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<BoardResponse>> deleteBoard (@PathVariable Long id) {
         boardService.deleteBoard(id);
         return ResponseEntity.ok(ApiResponse.success("Delete board successfully", null));
@@ -80,5 +80,23 @@ public class BoardController {
         return ResponseEntity.ok(ApiResponse.success("Remove member successfully", null));
     }
 
+    @PutMapping("/{id}/archive")
+    @Operation(summary = "Archive board")
+    public ResponseEntity<ApiResponse<Void>> archiveBoard(@PathVariable Long id) {
+        boardService.archiveBoard(id);
+        return ResponseEntity.ok(ApiResponse.success("Board đã được lưu trữ", null));
+    }
 
+    @Operation(summary = "Restore a archived board")
+    @PutMapping("/{id}/unarchive")
+    public ResponseEntity<ApiResponse<Void>> unarchiveBoard(@PathVariable Long id) {
+        boardService.unarchiveBoard(id);
+        return ResponseEntity.ok(ApiResponse.success("Board đã được khôi phục", null));
+    }
+
+    @Operation(summary = "Get list archived board")
+    @GetMapping("/archived")
+    public ResponseEntity<ApiResponse<List<BoardResponse>>> getArchivedBoards() {
+        return ResponseEntity.ok(ApiResponse.success(boardService.getArchivedBoards()));
+    }
 }

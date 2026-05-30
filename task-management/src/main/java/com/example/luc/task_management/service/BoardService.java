@@ -168,6 +168,45 @@ public class BoardService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<BoardResponse> getArchivedBoards() {
+        User currentUser = SecurityUtils.getCurrentUser();
+        return boardRepository.findArchivedBoardsByUser(currentUser)
+                .stream()
+                .map(BoardResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void archiveBoard(Long boardId) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+
+        // Check if the board has been archived
+        if (board.getIsArchived()) {
+            throw new AppException(ErrorCode.BAD_REQUEST);
+        }
+
+        board.setIsArchived(true);
+        boardRepository.save(board);
+        log.info("Board archived: {} by {}", board.getName(), currentUser.getEmail());
+    }
+
+    @Transactional
+    public void unarchiveBoard(Long boardId) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+
+        // Check if the board has been archived
+        if (!board.getIsArchived()) {
+            throw new AppException(ErrorCode.BAD_REQUEST);
+        }
+        board.setIsArchived(false);
+        boardRepository.save(board);
+
+        log.info("Board unarchived: {} by {}", board.getName(), currentUser.getEmail());
+    }
+
     private Board getBoardAndCheckAdmin(Long boardId, User user) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new AppException((ErrorCode.BOARD_NOT_FOUND)));
