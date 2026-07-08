@@ -59,7 +59,10 @@ public class ColumnService {
     @Transactional(readOnly = true)
     public List<ColumnResponse> getColumnsByBoard(Long boardId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        
+        // Kiểm tra board tồn tại
+        boardRepository.findById(boardId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
 
         if (!boardRepository.isUserInBoard(boardId, currentUser.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
