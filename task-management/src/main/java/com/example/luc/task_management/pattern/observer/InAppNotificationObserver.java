@@ -21,7 +21,7 @@ public class InAppNotificationObserver implements TaskObserver{
     @Override
     public void onTaskEven(Task task, String evenType, String message) {
         // Chỉ gửi thông báo nếu có assignee
-        if (task.getAssignee() != null) return;
+        if (task.getAssignee() == null) return;
         // không gửi thông báo cho người thực hiện
         if (task.getAssignee().getId().equals(task.getReporter().getId())) return;
 

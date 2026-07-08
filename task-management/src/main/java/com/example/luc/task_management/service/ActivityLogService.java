@@ -51,7 +51,7 @@ public class ActivityLogService {
     public List<ActivityLogResponse> getTaskActivityLogs(Long boardId, Long taskId) {
         User currentUser = SecurityUtils.getCurrentUser();
 
-        if (!boardRepository.isUserInBoard(boardId, taskId)) {
+        if (!boardRepository.isUserInBoard(boardId, currentUser.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 

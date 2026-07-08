@@ -24,6 +24,7 @@ public class CommandInvoker {
                 .board(task.getBoard())
                 .task(task)
                 .user(actor)
+                .action(action)
                 .newValue(command.getActionLog())
                 .build();
 

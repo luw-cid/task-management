@@ -159,7 +159,7 @@ public class CommentService {
     }
 
     private void checkBoardMember(Long boardId, User user) {
-        if (boardRepository.isUserInBoard(boardId, user.getId())) {
+        if (!boardRepository.isUserInBoard(boardId, user.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
     }
