@@ -97,9 +97,12 @@ public class LabelService {
         Label label = labelRepository.findByIdAndBoardId(labelId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.LABEL_NOT_FOUND));
 
+        // Xóa liên kết trong ở bảng trong gian task_lables
+        labelRepository.deleteFromTaskLabel(labelId);
+
+        // Xóa label
         labelRepository.delete(label);
-        // Nhãn bị xóa tự động remove khỏi task_labels
-        // nhờ CascadeType và orphanRemoval trong entity
+
         log.info("Label deleted: {} from board: {}", labelId, boardId);
     }
 
@@ -117,7 +120,7 @@ public class LabelService {
                 .orElseThrow(() -> new AppException(ErrorCode.LABEL_NOT_FOUND));
 
         // Kiểm tra đã gán chưa
-        if (labelRepository.existsTaskLabel(taskId, labelId)) {
+        if (labelRepository.countTaskLabel(taskId, labelId) > 0) {
             return; // Đã có rồi, bỏ qua
         }
 

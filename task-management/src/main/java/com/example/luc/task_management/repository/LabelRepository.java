@@ -22,10 +22,10 @@ public interface LabelRepository extends JpaRepository<Label, Long> {
 
     // Kiểm tra task đã có nhãn chưa
     @Query(value = """
-        SELECT COUNT(*) > 0 FROM task_labels
+        SELECT COUNT(*) FROM task_labels
         WHERE task_id = :taskId AND label_id = :labelId
         """, nativeQuery = true)
-    boolean existsTaskLabel(
+    long countTaskLabel(
             @Param("taskId") Long taskId,
             @Param("labelId") Long labelId
     );
@@ -33,8 +33,8 @@ public interface LabelRepository extends JpaRepository<Label, Long> {
     // Thêm nhãn vào task
     @Modifying
     @Query(value = """
-        INSERT INTO task_labels (task_id, label_id)
-        VALUES (:taskId, :labelId)
+        INSERT INTO task_labels (task_id, label_id, created_at, update_at, updated_at)
+        VALUES (:taskId, :labelId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """, nativeQuery = true)
     void addTaskLabel(
             @Param("taskId") Long taskId,
@@ -51,5 +51,15 @@ public interface LabelRepository extends JpaRepository<Label, Long> {
             @Param("taskId") Long taskId,
             @Param("labelId") Long labelId
     );
+
+    // Xóa tất cả các liên kết của labels trong task_labels trước khi xóa label
+    // Xóa tất cả các liên kết của nhãn trong bảng task_labels trước khi xóa nhãn
+    @Modifying
+    @Query(value = """
+        DELETE FROM task_labels
+        WHERE label_id = :labelId
+        """, nativeQuery = true)
+    void deleteFromTaskLabel(@Param("labelId") Long labelId);
+
 
 }

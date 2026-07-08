@@ -16,9 +16,9 @@ public interface TaskLabelRepository extends JpaRepository<TaskLabel, Long> {
     )
     void removeTaskLabel(@Param("taskId") Long taskId, @Param("labelId") Long labelId);
 
-    @Query(value = "SELECT COUNT(*) > 0 FROM task_labels WHERE task_id = :taskId AND label_id = :labelId",
+    @Query(value = "SELECT COUNT(*) FROM task_labels WHERE task_id = :taskId AND label_id = :labelId",
             nativeQuery = true)
-    boolean existsTaskLabel(
+    long countTaskLabel(
             @Param("taskId") Long taskId,
             @Param("labelId") Long labelId
     );
