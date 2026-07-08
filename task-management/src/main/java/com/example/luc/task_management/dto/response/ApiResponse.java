@@ -14,7 +14,7 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()
-                .status(200).message("Thành công").data(data).build();
+                .status(200).message("Success").data(data).build();
     }
 
     public static <T> ApiResponse<T> success(String message, T data) {
@@ -24,6 +24,6 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> created(T data) {
         return ApiResponse.<T>builder()
-                .status(201).message("Tạo thành công").data(data).build();
+                .status(201).message("Create successfully").data(data).build();
     }
 }

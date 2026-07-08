@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -26,7 +27,7 @@ public class GlobalExceptionHandler {
         });
         return ResponseEntity.badRequest().body(Map.of(
                 "status", 400,
-                "message", "Dữ liệu không hợp lệ",
+                "message", "Invalid data",
                 "errors", errors
         ));
     }
@@ -49,7 +50,20 @@ public class GlobalExceptionHandler {
         log.error("Unhandled exception: ", ex);
         return ResponseEntity.internalServerError().body(Map.of(
                 "status", 500,
-                "message", "Lỗi hệ thống, vui lòng thử lại sau"
+                "message", "System error, please try again later"
+        ));
+    }
+
+    // Bắt lỗi cú pháp json không hợp lệ hoặc giá trị ENUM sai định dạng
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        log.error("HttpMessageReadable: {}", ex.getMessage());
+
+        String errorMessage = "Invalid input data or incorrect format";
+
+        return ResponseEntity.badRequest().body(Map.of(
+                "status",400,
+                "message", errorMessage
         ));
     }
 }
