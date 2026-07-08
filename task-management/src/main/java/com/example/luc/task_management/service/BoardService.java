@@ -17,6 +17,8 @@ import com.example.luc.task_management.repository.BoardRepository;
 import com.example.luc.task_management.repository.ColumnRepository;
 import com.example.luc.task_management.repository.UserRepository;
 import com.example.luc.task_management.util.SecurityUtils;
+import com.example.luc.task_management.enums.NotificationType;
+import com.example.luc.task_management.enums.ReferenceType;
 //import jakarta.transaction.Transactional;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class BoardService {
     private final BoardMemberRepository boardMemberRepository;
     private final ColumnRepository columnRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public BoardResponse createBoard(CreateBoardRequest request) {
@@ -131,6 +134,16 @@ public class BoardService {
                 .build();
         boardMemberRepository.save(member);
 
+        // Gửi thông báo cho người được mời
+        notificationService.sendNotification(
+                invitedUser,
+                "New Board Invitation",
+                String.format("You have been invited to join the board: %s", board.getName()),
+                NotificationType.BOARD_INVITED,
+                board.getId(),
+                ReferenceType.BOARD
+        );
+
         log.info("Member invited: {} to board {}", invitedUser.getEmail(), board.getName());
         return BoardMemberResponse.fromEntity(member);
     }
@@ -152,17 +165,18 @@ public class BoardService {
         log.info("Member removed: {} from board {}", memberToRemove.getEmail(), board.getName());
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<BoardMemberResponse> getBoardMembers(Long boardId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
 
         if (!boardRepository.isUserInBoard(boardId, currentUser.getId())) {
-            throw new AppException(ErrorCode.USER_NOT_FOUND);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        return boardMemberRepository.findAllByBoard(boardRepository.findById(boardId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND)))
+        return boardMemberRepository.findAllByBoard(board)
                 .stream()
                 .map(BoardMemberResponse::fromEntity)
                 .collect(Collectors.toList());
@@ -209,7 +223,7 @@ public class BoardService {
 
     private Board getBoardAndCheckAdmin(Long boardId, User user) {
         Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new AppException((ErrorCode.BOARD_NOT_FOUND)));
+                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
 
         // Chỉ owner hoặc boadrd_admin mới được thực hiện
         boolean isAdmin = board.getOwner().getId().equals(user.getId()) ||
@@ -220,6 +234,7 @@ public class BoardService {
         if (!isAdmin) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
+
 
         return board;
     }
