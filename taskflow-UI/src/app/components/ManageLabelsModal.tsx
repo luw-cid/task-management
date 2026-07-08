@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { X, Check, Pencil, Trash2, Plus, Tag } from "lucide-react";
+import { labelsApi } from "../../api";
+import type { Label as ApiLabel } from "../../types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -19,26 +22,12 @@ const PRESET_COLORS = [
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Label {
-  id: string;
-  name: string;
-  color: string;
-}
-
 interface Props {
   onClose: () => void;
+  boardId: number | null;
 }
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
-
-const SEED_LABELS: Label[] = [
-  { id: "l1", name: "Frontend",   color: "#6366f1" },
-  { id: "l2", name: "Backend",    color: "#8b5cf6" },
-  { id: "l3", name: "Mobile",     color: "#f59e0b" },
-  { id: "l4", name: "Auth",       color: "#ef4444" },
-  { id: "l5", name: "Design",     color: "#06b6d4" },
-  { id: "l6", name: "DevOps",     color: "#10b981" },
-];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -115,19 +104,57 @@ function ColorRow({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ManageLabelsModal({ onClose }: Props) {
+export function ManageLabelsModal({ onClose, boardId }: Props) {
+  const queryClient = useQueryClient();
+  const [submitError, setSubmitError] = useState("");
+
+  const labelsQuery = useQuery({
+    queryKey: ["board-labels", boardId],
+    queryFn: () => labelsApi.getByBoard(boardId!),
+    enabled: boardId !== null,
+  });
+
+  const createLabelMutation = useMutation({
+    mutationFn: (payload: { name: string; color: string }) => {
+      if (boardId === null) throw new Error("Please open a board before managing labels.");
+      return labelsApi.create(boardId, payload);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["board-labels", boardId] });
+    },
+  });
+
+  const updateLabelMutation = useMutation({
+    mutationFn: (payload: { id: number; name: string; color: string }) => {
+      if (boardId === null) throw new Error("Please open a board before managing labels.");
+      return labelsApi.update(boardId, payload.id, { name: payload.name, color: payload.color });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["board-labels", boardId] });
+    },
+  });
+
+  const deleteLabelMutation = useMutation({
+    mutationFn: (labelId: number) => {
+      if (boardId === null) throw new Error("Please open a board before managing labels.");
+      return labelsApi.delete(boardId, labelId);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["board-labels", boardId] });
+    },
+  });
+
   // ── Create form ──
   const [newColor,     setNewColor]     = useState(PRESET_COLORS[6]); // indigo
   const [newName,      setNewName]      = useState("");
   const [newNameError, setNewNameError] = useState("");
 
-  // ── Labels ──
-  const [labels, setLabels] = useState<Label[]>(SEED_LABELS);
+  const labels = labelsQuery.data ?? [];
 
-  // ── Edit state — start with "Mobile" in edit mode per spec ──
-  const [editingId,     setEditingId]     = useState<string | null>("l3");
-  const [editColor,     setEditColor]     = useState(SEED_LABELS[2].color);
-  const [editName,      setEditName]      = useState(SEED_LABELS[2].name);
+  // ── Edit state ──
+  const [editingId,     setEditingId]     = useState<number | null>(null);
+  const [editColor,     setEditColor]     = useState(PRESET_COLORS[6]);
+  const [editName,      setEditName]      = useState("");
   const [editColorOpen, setEditColorOpen] = useState(false);
 
   // ── Refs ──
@@ -166,33 +193,49 @@ export function ManageLabelsModal({ onClose }: Props) {
 
   // ── Handlers ──
 
-  function startEdit(label: Label) {
+  function startEdit(label: ApiLabel) {
+    setSubmitError("");
     setEditingId(label.id);
     setEditColor(label.color);
     setEditName(label.name);
     setEditColorOpen(false);
   }
 
-  function saveEdit() {
-    if (!editName.trim()) return;
-    setLabels(prev =>
-      prev.map(l => l.id === editingId ? { ...l, name: editName.trim(), color: editColor } : l)
-    );
-    setEditingId(null);
-    setEditColorOpen(false);
+  async function saveEdit() {
+    const trimmed = editName.trim();
+    if (!trimmed || editingId === null) return;
+    if (labels.some((label) => label.id !== editingId && label.name.toLowerCase() === trimmed.toLowerCase())) {
+      setSubmitError("A label with this name already exists.");
+      return;
+    }
+
+    try {
+      setSubmitError("");
+      await updateLabelMutation.mutateAsync({ id: editingId, name: trimmed, color: editColor });
+      setEditingId(null);
+      setEditColorOpen(false);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to update label.");
+    }
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditColorOpen(false);
+    setSubmitError("");
   }
 
-  function deleteLabel(id: string) {
-    setLabels(prev => prev.filter(l => l.id !== id));
-    if (editingId === id) cancelEdit();
+  async function deleteLabel(id: number) {
+    try {
+      setSubmitError("");
+      await deleteLabelMutation.mutateAsync(id);
+      if (editingId === id) cancelEdit();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to delete label.");
+    }
   }
 
-  function addLabel() {
+  async function addLabel() {
     const trimmed = newName.trim();
     if (!trimmed) {
       setNewNameError("Enter a label name.");
@@ -204,10 +247,16 @@ export function ManageLabelsModal({ onClose }: Props) {
       newNameRef.current?.focus();
       return;
     }
-    setLabels(prev => [...prev, { id: `l${Date.now()}`, name: trimmed, color: newColor }]);
-    setNewName("");
-    setNewNameError("");
-    newNameRef.current?.focus();
+
+    try {
+      setSubmitError("");
+      await createLabelMutation.mutateAsync({ name: trimmed, color: newColor });
+      setNewName("");
+      setNewNameError("");
+      newNameRef.current?.focus();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to create label.");
+    }
   }
 
   function handleOverlayClick(e: React.MouseEvent) {
@@ -305,8 +354,8 @@ export function ManageLabelsModal({ onClose }: Props) {
                 ref={newNameRef}
                 type="text"
                 value={newName}
-                onChange={e => { setNewName(e.target.value.slice(0, 32)); setNewNameError(""); }}
-                onKeyDown={e => e.key === "Enter" && addLabel()}
+                onChange={e => { setNewName(e.target.value.slice(0, 32)); setNewNameError(""); setSubmitError(""); }}
+                onKeyDown={e => { if (e.key === "Enter") void addLabel(); }}
                 placeholder="Label name"
                 maxLength={32}
                 className={[
@@ -321,7 +370,8 @@ export function ManageLabelsModal({ onClose }: Props) {
               {/* Add button */}
               <button
                 type="button"
-                onClick={addLabel}
+                onClick={() => void addLabel()}
+                disabled={boardId === null || createLabelMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold text-white transition-all active:scale-[0.97] flex-shrink-0"
                 style={{
                   backgroundColor: newColor,
@@ -335,6 +385,9 @@ export function ManageLabelsModal({ onClose }: Props) {
 
             {newNameError && (
               <p className="mt-1.5 text-[11px] text-[#ef4444] pl-10">{newNameError}</p>
+            )}
+            {!newNameError && submitError && (
+              <p className="mt-1.5 text-[11px] text-[#ef4444] pl-10">{submitError}</p>
             )}
           </div>
 
@@ -352,7 +405,11 @@ export function ManageLabelsModal({ onClose }: Props) {
               </span>
             </div>
 
-            {labels.length === 0 ? (
+            {labelsQuery.isLoading ? (
+              <div className="flex flex-col items-center gap-2 py-8">
+                <p className="text-sm text-[#64748b]">Loading labels...</p>
+              </div>
+            ) : labels.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e293b]">
                   <Tag className="h-5 w-5 text-[#334155]" />
@@ -443,9 +500,9 @@ export function ManageLabelsModal({ onClose }: Props) {
                       ref={editNameRef}
                       type="text"
                       value={editName}
-                      onChange={e => setEditName(e.target.value.slice(0, 32))}
+                      onChange={e => { setEditName(e.target.value.slice(0, 32)); setSubmitError(""); }}
                       onKeyDown={e => {
-                        if (e.key === "Enter") saveEdit();
+                        if (e.key === "Enter") void saveEdit();
                         if (e.key === "Escape") cancelEdit();
                       }}
                       maxLength={32}
@@ -455,8 +512,9 @@ export function ManageLabelsModal({ onClose }: Props) {
                     {/* Save */}
                     <button
                       type="button"
-                      onClick={saveEdit}
+                      onClick={() => void saveEdit()}
                       title="Save (Enter)"
+                      disabled={updateLabelMutation.isPending}
                       className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#10b981]/12 text-[#10b981] hover:bg-[#10b981]/22 transition-colors flex-shrink-0"
                     >
                       <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -515,8 +573,9 @@ export function ManageLabelsModal({ onClose }: Props) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => deleteLabel(label.id)}
+                        onClick={() => void deleteLabel(label.id)}
                         title="Delete"
+                        disabled={deleteLabelMutation.isPending}
                         className="flex h-7 w-7 items-center justify-center rounded-lg text-[#475569] hover:bg-[#ef4444]/12 hover:text-[#ef4444] transition-colors"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -532,7 +591,11 @@ export function ManageLabelsModal({ onClose }: Props) {
         {/* ── Footer ───────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-5 py-3.5 border-t border-[#1e293b] flex-shrink-0 bg-[#0c1421]">
           <p className="text-[11px] text-[#334155]">
-            {labels.length} label{labels.length !== 1 ? "s" : ""} · {PRESET_COLORS.length} preset colors
+            {boardId === null
+              ? "Open a board to manage labels."
+              : labelsQuery.isError
+                ? "Unable to load labels from the server."
+                : `${labels.length} label${labels.length !== 1 ? "s" : ""} · ${PRESET_COLORS.length} preset colors`}
           </p>
           <button
             type="button"

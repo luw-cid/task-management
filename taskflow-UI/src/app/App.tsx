@@ -7,8 +7,9 @@ import {
   CheckCircle2, Circle, Clock, Plus, MoreHorizontal,
   Search, Bell, Settings, ChevronDown, ChevronRight, Calendar,
   Home, ClipboardList, Users, LayoutGrid, TrendingUp, AlertTriangle,
-  ExternalLink, Hash, ChevronLeft, LogOut,
+  ExternalLink, Hash, ChevronLeft, LogOut, Check, Trash2, UserPlus, Pencil, MessageSquare,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { TaskDetailPanel } from "./components/TaskDetailPanel";
 import { NotificationDropdown } from "./components/NotificationDropdown";
 import { SettingsPage } from "./components/SettingsPage";
@@ -21,7 +22,7 @@ import { ManageLabelsModal } from "./components/ManageLabelsModal";
 import { BoardSettingsModal } from "./components/BoardSettingsModal";
 import { NoNotificationsState } from "./components/EmptyStates";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { authApi, boardsApi, clearAuthTokens, columnsApi, labelsApi, tasksApi, usersApi } from "../api";
+import { authApi, boardsApi, clearAuthTokens, columnsApi, labelsApi, notificationsApi, tasksApi, usersApi } from "../api";
 import type { Column, CreateBoardRequest, LoginRequest, RegisterRequest, Task, TaskStatus, UserProfile } from "../types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -40,6 +41,18 @@ const ROUTES: Record<AppView, string> = {
   notifications: "/notifications",
   settings: "/profile",
 };
+
+const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+  TASK_ASSIGNED: { icon: UserPlus,      color: "#6366f1", bg: "#6366f1" },
+  TASK_UPDATE:   { icon: Pencil,        color: "#f59e0b", bg: "#f59e0b" },
+  TASK_DELETED:  { icon: AlertTriangle, color: "#ef4444", bg: "#ef4444" },
+  TASK_COMMENTED:{ icon: MessageSquare, color: "#8b5cf6", bg: "#8b5cf6" },
+  BOARD_INVITED: { icon: Users,         color: "#10b981", bg: "#10b981" },
+  DEADLINE_REMINDER: { icon: Clock,      color: "#ec4899", bg: "#ec4899" },
+  SYSTEM_ALERT:  { icon: Bell,          color: "#3b82f6", bg: "#3b82f6" },
+};
+
+const DEFAULT_TYPE_CONFIG = { icon: Bell, color: "#6366f1", bg: "#6366f1" };
 
 function getBoardRoute(boardId: number | string) {
   return `/boards/${boardId}`;
@@ -426,6 +439,7 @@ function Sidebar({
   onNav,
   boards,
   currentUser,
+  unreadNotificationsCount,
   onOpenBoard,
   onCreateBoard,
   onLogout,
@@ -436,6 +450,7 @@ function Sidebar({
   onNav: (n: NavItem) => void;
   boards: DashboardBoard[];
   currentUser: UserProfile | null;
+  unreadNotificationsCount: number;
   onOpenBoard: (boardId: number) => void;
   onCreateBoard: () => void;
   onLogout: () => void;
@@ -444,7 +459,7 @@ function Sidebar({
   const navItems: { id: NavItem; label: string; icon: React.ElementType; badge?: number }[] = [
     { id: "home",          label: "Home",          icon: Home },
     { id: "tasks",         label: "My Tasks",      icon: ClipboardList },
-    { id: "notifications", label: "Notifications", icon: Bell, badge: 3 },
+    { id: "notifications", label: "Notifications", icon: Bell, badge: unreadNotificationsCount },
     { id: "settings",      label: "Settings",      icon: Settings },
   ];
   const labelClass = `overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${
@@ -627,18 +642,21 @@ function BoardCard({ board, onClick }: { board: DashboardBoard; onClick: () => v
   );
 }
 
-function TaskRow({ task }: { task: DashboardTask }) {
+function TaskRow({ task, onOpen }: { task: DashboardTask; onOpen?: (task: DashboardTask) => void }) {
   const [done, setDone] = useState(task.done);
   const p = PRIORITY_STYLES[task.priority];
   const isOverdue = !done && new Date(task.deadline) < new Date();
   return (
-    <div className={`group flex items-center gap-4 rounded-lg px-4 py-3 hover:bg-secondary/20 transition-colors ${done ? "opacity-50" : ""}`}>
-      <button onClick={() => setDone(!done)} className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors">{done ? <CheckCircle2 className="h-4 w-4 text-[#10b981]" /> : <Circle className="h-4 w-4" />}</button>
+    <div
+      onClick={() => onOpen?.(task)}
+      className={`group flex items-center gap-4 rounded-lg px-4 py-3 hover:bg-secondary/20 transition-colors ${done ? "opacity-50" : ""} ${onOpen ? "cursor-pointer" : ""}`}
+    >
+      <button onClick={(event) => { event.stopPropagation(); setDone(!done); }} className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors">{done ? <CheckCircle2 className="h-4 w-4 text-[#10b981]" /> : <Circle className="h-4 w-4" />}</button>
       <div className="flex-1 min-w-0"><p className={`text-sm font-medium truncate ${done ? "line-through text-muted-foreground" : "text-foreground"}`}>{task.title}</p><div className="flex items-center gap-1.5 mt-0.5"><div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: task.boardColor }} /><span className="text-xs text-muted-foreground truncate">{task.board}</span></div></div>
       <span className={`hidden sm:inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium flex-shrink-0 ${p.bg} ${p.text}`}>{task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}</span>
       <div className={`hidden md:flex items-center gap-1.5 text-xs flex-shrink-0 ${isOverdue ? "text-[#ef4444]" : "text-muted-foreground"}`}>{isOverdue && <AlertTriangle className="h-3 w-3" />}<Calendar className="h-3 w-3" /><span>{new Date(task.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></div>
       <div className="flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-semibold text-white flex-shrink-0" style={{ backgroundColor: getAvatarColor(task.assignee) }} title={task.assignee}>{getInitials(task.assignee)}</div>
-      <button className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary/50 transition-all flex-shrink-0"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+      <button onClick={(event) => event.stopPropagation()} className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary/50 transition-all flex-shrink-0"><MoreHorizontal className="h-3.5 w-3.5" /></button>
     </div>
   );
 }
@@ -647,11 +665,13 @@ function DashboardHome({
   boards,
   tasks,
   onOpenBoard,
+  onOpenTask,
   onCreateTask,
 }: {
   boards: DashboardBoard[];
   tasks: DashboardTask[];
   onOpenBoard: (boardId: number) => void;
+  onOpenTask: (task: DashboardTask) => void;
   onCreateTask: () => void;
 }) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
@@ -687,7 +707,7 @@ function DashboardHome({
             <span className="text-xs font-medium text-muted-foreground w-8 text-center">Who</span>
             <span className="w-6" />
           </div>
-          <div className="divide-y divide-border/50">{tasks.map((task) => <TaskRow key={task.id} task={task} />)}</div>
+          <div className="divide-y divide-border/50">{tasks.map((task) => <TaskRow key={task.id} task={task} onOpen={onOpenTask} />)}</div>
           <div className="border-t border-border/50"><button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition-colors"><Plus className="h-4 w-4" />Add a task</button></div>
         </div>
       </section>
@@ -705,6 +725,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTaskBoardId, setSelectedTaskBoardId] = useState<number | null>(null);
   const [createBoardOpen, setCreateBoardOpen] = useState(false);
   const [createTaskOpen,  setCreateTaskOpen]  = useState(false);
   const [inviteMemberOpen,   setInviteMemberOpen]   = useState(false);
@@ -721,6 +742,64 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     queryKey: ["current-user-profile"],
     queryFn: usersApi.getMe,
   });
+
+  const unreadNotificationsCountQuery = useQuery({
+    queryKey: ["notifications-unread-count"],
+    queryFn: notificationsApi.getUnreadCount,
+    refetchInterval: 5000,
+  });
+
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => notificationsApi.getAll(0, 50),
+    refetchInterval: 5000,
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: number) => notificationsApi.markAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    },
+  });
+
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => notificationsApi.markAllAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    },
+  });
+
+  const deleteNotificationMutation = useMutation({
+    mutationFn: (id: number) => notificationsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    },
+  });
+
+  const handleNotifClick = async (notif: any) => {
+    if (!notif.isRead) {
+      await markAsReadMutation.mutateAsync(notif.id);
+    }
+    if (notif.type === "BOARD_INVITED" && notif.referenceId) {
+      navigate(`/boards/${notif.referenceId}`);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    deleteNotificationMutation.mutate(id);
+  };
+
+  const formatNotifTime = (timeStr: string) => {
+    try {
+      return formatDistanceToNow(new Date(timeStr), { addSuffix: true });
+    } catch (e) {
+      return timeStr;
+    }
+  };
 
   const boards = boardsQuery.data ?? [];
   const fallbackBoard = boards[0] ?? null;
@@ -821,7 +900,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
       });
 
       if (payload.labels.length > 0) {
-        const labels = boardLabelsQuery.data ?? [];
+        const labels = await labelsApi.getByBoard(payload.boardId);
         await Promise.all(
           payload.labels.map(async (item) => {
             const matchedLabel = labels.find((label) => label.name === item.label);
@@ -834,10 +913,10 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
 
       return task;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, payload) => {
       setCreateTaskOpen(false);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["board-tasks", activeBoardId] }),
+        queryClient.invalidateQueries({ queryKey: ["board-tasks", payload.boardId] }),
         queryClient.invalidateQueries({ queryKey: ["all-board-tasks"] }),
       ]);
     },
@@ -915,6 +994,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     setNotifOpen(false);
     setTaskDetailOpen(false);
     setSelectedTaskId(null);
+    setSelectedTaskBoardId(null);
     setCreateBoardOpen(false);
     setCreateTaskOpen(false);
     setInviteMemberOpen(false);
@@ -935,6 +1015,12 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  function handleOpenTaskDetail(task: { id: string; boardId: number }) {
+    setSelectedTaskId(Number(task.id));
+    setSelectedTaskBoardId(task.boardId);
+    setTaskDetailOpen(true);
+  }
+
   return (
     <div className="flex h-screen w-screen bg-background font-['Inter'] overflow-hidden">
 
@@ -946,6 +1032,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
         onNav={handleSidebarNav}
         boards={dashboardBoards}
         currentUser={currentUserQuery.data ?? null}
+        unreadNotificationsCount={unreadNotificationsCountQuery.data ?? 0}
         onOpenBoard={(nextBoardId) => { navigate(getBoardRoute(nextBoardId)); setNotifOpen(false); }}
         onCreateBoard={() => setCreateBoardOpen(true)}
         onLogout={handleLogout}
@@ -970,8 +1057,8 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                 onInvite={() => setInviteMemberOpen(true)}
                 onManageLabels={() => setManageLabelsOpen(true)}
                 onTaskClick={(taskId) => {
-                  setSelectedTaskId(Number(taskId));
-                  setTaskDetailOpen(true);
+                  if (!activeBoardId) return;
+                  handleOpenTaskDetail({ id: taskId, boardId: activeBoardId });
                 }}
                 onBoardSettings={() => setBoardSettingsOpen(true)}
                 initialActiveTab={location.pathname.endsWith("/statistics") ? 4 : 0}
@@ -1022,7 +1109,9 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                       className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${notifOpen ? "bg-secondary/50 text-foreground" : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"}`}
                     >
                       <Bell className="h-4 w-4" />
-                      <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary border-2 border-background" />
+                      {!!unreadNotificationsCountQuery.data && unreadNotificationsCountQuery.data > 0 && (
+                        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary border-2 border-background" />
+                      )}
                     </button>
                     <NotificationDropdown isOpen={notifOpen} onClose={() => setNotifOpen(false)} />
                   </div>
@@ -1054,6 +1143,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                     boards={dashboardBoards}
                     tasks={dashboardTasks}
                     onOpenBoard={(nextBoardId) => navigate(getBoardRoute(nextBoardId))}
+                    onOpenTask={handleOpenTaskDetail}
                     onCreateTask={() => setCreateTaskOpen(true)}
                   />
                 )}
@@ -1063,19 +1153,92 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                     <p className="text-sm text-muted-foreground mb-6">All tasks assigned to you across boards</p>
                     <div className="rounded-xl border border-border bg-card overflow-hidden w-full">
                       <div className="divide-y divide-border/50">
-                        {dashboardTasks.map((task) => <TaskRow key={task.id} task={task} />)}
+                        {dashboardTasks.map((task) => <TaskRow key={task.id} task={task} onOpen={handleOpenTaskDetail} />)}
                       </div>
                     </div>
                   </div>
                 )}
                 {appView === "notifications" && (
-                  <div className="flex flex-col h-full">
-                    <div className="px-8 pt-8 pb-2 border-b border-border/50 flex-shrink-0">
-                      <h1 className="text-2xl font-semibold text-foreground mb-1">Notifications</h1>
-                      <p className="text-sm text-muted-foreground">Stay up to date with your team's activity</p>
+                  <div className="flex flex-col h-full overflow-hidden">
+                    <div className="px-8 pt-8 pb-4 border-b border-border/50 flex-shrink-0 flex items-center justify-between">
+                      <div>
+                        <h1 className="text-2xl font-semibold text-foreground mb-1">Notifications</h1>
+                        <p className="text-sm text-muted-foreground">Stay up to date with your team's activity</p>
+                      </div>
+                      {(notificationsQuery.data?.length ?? 0) > 0 && (
+                        <button
+                          onClick={() => markAllAsReadMutation.mutate()}
+                          disabled={!(notificationsQuery.data?.some(n => !n.isRead))}
+                          className="flex items-center gap-1.5 text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Check className="h-4 w-4" />
+                          Mark all as read
+                        </button>
+                      )}
                     </div>
-                    <div className="flex-1 flex items-center justify-center">
-                      <NoNotificationsState />
+                    <div className="flex-1 overflow-y-auto px-8 py-6">
+                      {notificationsQuery.isLoading ? (
+                        <div className="flex flex-col items-center justify-center gap-2 py-16">
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          <p className="text-sm text-muted-foreground">Loading notifications...</p>
+                        </div>
+                      ) : (notificationsQuery.data?.length ?? 0) === 0 ? (
+                        <div className="mt-8 flex justify-center">
+                          <NoNotificationsState />
+                        </div>
+                      ) : (
+                        <div className="max-w-4xl mx-auto rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+                          <div className="divide-y divide-border/50">
+                            {notificationsQuery.data?.map((n) => {
+                              const cfg = TYPE_CONFIG[n.type] || DEFAULT_TYPE_CONFIG;
+                              const Icon = cfg.icon;
+                              return (
+                                <div
+                                  key={n.id}
+                                  className={`group w-full flex items-start gap-4 px-6 py-4 text-left transition-colors hover:bg-secondary/20 relative ${
+                                    !n.isRead ? "bg-primary/[0.04]" : ""
+                                  }`}
+                                >
+                                  <button
+                                    onClick={() => handleNotifClick(n)}
+                                    className="flex-1 flex items-start gap-4 text-left focus:outline-none min-w-0"
+                                  >
+                                    <div
+                                      className="flex h-10 w-10 items-center justify-center rounded-full flex-shrink-0 mt-0.5"
+                                      style={{ backgroundColor: cfg.bg + "20" }}
+                                    >
+                                      <Icon className="h-5 w-5" style={{ color: cfg.color }} />
+                                    </div>
+                                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                                      <p className={`text-base leading-snug ${n.isRead ? "font-medium text-muted-foreground" : "font-semibold text-foreground"}`}>
+                                        {n.title}
+                                      </p>
+                                      <p className="text-sm text-muted-foreground leading-relaxed">
+                                        {n.message}
+                                      </p>
+                                      <p className={`text-xs mt-1 tabular-nums ${n.isRead ? "text-muted-foreground/50" : "text-primary/70 font-medium"}`}>
+                                        {formatNotifTime(n.createdAt)}
+                                      </p>
+                                    </div>
+                                  </button>
+                                  <div className="flex-shrink-0 mt-1 w-8 flex items-center justify-center h-10">
+                                    <button
+                                      onClick={(e) => handleDelete(e, n.id)}
+                                      className="hidden group-hover:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                      title="Delete notification"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                    {!n.isRead && (
+                                      <span className="group-hover:hidden h-2.5 w-2.5 rounded-full bg-primary flex-shrink-0" />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1094,11 +1257,12 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
             onClose={() => {
               setTaskDetailOpen(false);
               setSelectedTaskId(null);
+              setSelectedTaskBoardId(null);
             }}
-            boardId={activeBoardId}
+            boardId={selectedTaskBoardId}
             taskId={selectedTaskId}
-            columns={boardColumnsQuery.data ?? []}
-            members={currentBoard?.members ?? []}
+            columns={selectedTaskBoardId === activeBoardId ? (boardColumnsQuery.data ?? []) : []}
+            members={selectedTaskBoardId === activeBoardId ? (currentBoard?.members ?? []) : []}
           />
         )}
       </AnimatePresence>
@@ -1123,14 +1287,14 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
         {createTaskOpen && (
           <CreateTaskModal
             onClose={() => setCreateTaskOpen(false)}
-            columns={boardColumnsQuery.data ?? []}
-            members={currentBoard?.members ?? []}
-            availableLabels={boardLabelsQuery.data ?? []}
+            boards={boards}
+            initialBoardId={activeBoardId}
             onCreate={async (task) => {
-              if (!activeBoardId) throw new Error("Please create a board first.");
-              const matchedAssignee = (currentBoard?.members ?? []).find((member) => member.fullName === task.assignee) ?? null;
+              const matchedBoard = boards.find((board) => board.id === task.boardId) ?? null;
+              if (!matchedBoard) throw new Error("Please create a board first.");
+              const matchedAssignee = matchedBoard.members.find((member) => member.fullName === task.assignee) ?? null;
               await createTaskMutation.mutateAsync({
-                boardId: activeBoardId,
+                boardId: task.boardId,
                 columnId: Number(task.column),
                 type: task.type,
                 title: task.title,
@@ -1147,21 +1311,21 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
       {/* Invite Member modal — fade + scale */}
       <AnimatePresence>
         {inviteMemberOpen && (
-          <InviteMemberModal onClose={() => setInviteMemberOpen(false)} />
+          <InviteMemberModal onClose={() => setInviteMemberOpen(false)} boardId={activeBoardId} />
         )}
       </AnimatePresence>
 
       {/* Manage Labels modal — fade + scale */}
       <AnimatePresence>
         {manageLabelsOpen && (
-          <ManageLabelsModal onClose={() => setManageLabelsOpen(false)} />
+          <ManageLabelsModal onClose={() => setManageLabelsOpen(false)} boardId={activeBoardId} />
         )}
       </AnimatePresence>
 
       {/* Board Settings modal — fade + scale */}
       <AnimatePresence>
         {boardSettingsOpen && (
-          <BoardSettingsModal onClose={() => setBoardSettingsOpen(false)} />
+          <BoardSettingsModal onClose={() => setBoardSettingsOpen(false)} boardId={activeBoardId} />
         )}
       </AnimatePresence>
     </div>
@@ -1191,7 +1355,7 @@ export default function App() {
     }
 
     setIsAuthenticated(true);
-    navigate("/", { replace: true });
+    navigate("/tasks", { replace: true });
   }
 
   async function handleLogout() {
@@ -1202,17 +1366,17 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Routes>
+        <Route path="/" element={<Navigate to={isAuthenticated ? "/tasks" : "/login"} replace />} />
         <Route
           path="/login"
-          element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage view="login" onSignIn={handleSignIn} />}
+          element={isAuthenticated ? <Navigate to="/tasks" replace /> : <LoginPage view="login" onSignIn={handleSignIn} />}
         />
         <Route
           path="/register"
-          element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage view="signup" onSignIn={handleSignIn} />}
+          element={isAuthenticated ? <Navigate to="/tasks" replace /> : <LoginPage view="signup" onSignIn={handleSignIn} />}
         />
 
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<AuthenticatedLayout onLogout={handleLogout} />} />
           <Route path="/tasks" element={<AuthenticatedLayout onLogout={handleLogout} />} />
           <Route path="/boards/:boardId" element={<AuthenticatedLayout onLogout={handleLogout} />} />
           <Route path="/boards/:boardId/statistics" element={<AuthenticatedLayout onLogout={handleLogout} />} />
@@ -1221,7 +1385,7 @@ export default function App() {
           <Route path="/settings" element={<Navigate to="/profile" replace />} />
         </Route>
 
-        <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />} />
+        <Route path="*" element={<Navigate to={isAuthenticated ? "/tasks" : "/login"} replace />} />
       </Routes>
     </QueryClientProvider>
   );

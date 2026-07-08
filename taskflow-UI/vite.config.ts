@@ -33,4 +33,29 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  // ======= CẤU HÌNH BUILD ĐỂ TỐI ƯU BUNDLE =======
+  build: {
+    chunkSizeWarningLimit: 600, // tăng giới hạn cảnh báo kích thước lên 600KB
+
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // Tách riêng thư viện UI nặng (Material UI & Emotion)
+            if (id.includes('@mui') || id.includes('@emotion')) {
+              return 'mui'
+            }
+            // Tách riêng thư viện vẽ biểu đồ nặng (Recharts)
+            if (id.includes('recharts') || id.includes('d3')) {
+              return 'charts'
+            }
+            // Giữ chung React và các thư viện nhỏ khác ở vendor để tránh lỗi vòng lặp phụ thuộc (Circular Chunk)
+            return 'vendor'
+          }
+        }
+      }
+    }
+
+  }
 })

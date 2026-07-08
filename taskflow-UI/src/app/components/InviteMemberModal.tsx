@@ -1,24 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   X, Eye, User, Shield, Check, RefreshCw, Send, Mail,
   UserPlus, Clock, ChevronDown,
 } from "lucide-react";
+import { boardsApi } from "../../api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Role = "Viewer" | "Member" | "Admin";
 
-interface SystemUser {
-  name: string;
-  email: string;
-  color: string;
-}
-
 interface PendingInvite {
   id: string;
   email: string;
-  name?: string;
   avatarColor: string;
   role: Role;
   sentAt: string;
@@ -26,17 +21,6 @@ interface PendingInvite {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const SYSTEM_USERS: SystemUser[] = [
-  { name: "Alice Johnson", email: "alice@taskflow.io",   color: "#6366f1" },
-  { name: "Marcus Webb",   email: "marcus@taskflow.io",  color: "#10b981" },
-  { name: "Tom Wilson",    email: "tom@taskflow.io",     color: "#f59e0b" },
-  { name: "Sarah Chen",    email: "sarah@taskflow.io",   color: "#06b6d4" },
-  { name: "Priya Nair",    email: "priya@taskflow.io",   color: "#ef4444" },
-  { name: "Alex Rivera",   email: "alex@taskflow.io",    color: "#8b5cf6" },
-  { name: "Emily Davis",   email: "emily@taskflow.io",   color: "#ec4899" },
-  { name: "Raj Patel",     email: "raj@taskflow.io",     color: "#f97316" },
-];
 
 const ROLE_CONFIG: Record<Role, {
   Icon: React.ElementType;
@@ -68,23 +52,6 @@ const ROLE_CONFIG: Record<Role, {
   },
 };
 
-const SEED_PENDING: PendingInvite[] = [
-  {
-    id: "p1",
-    email: "sarah.k@company.com",
-    avatarColor: "#0ea5e9",
-    role: "Member",
-    sentAt: "2 days ago",
-  },
-  {
-    id: "p2",
-    email: "dev.mike@startup.io",
-    avatarColor: "#8b5cf6",
-    role: "Viewer",
-    sentAt: "5 days ago",
-  },
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isValidEmail(email: string) {
@@ -100,27 +67,39 @@ function avatarColor(name: string) {
   return palette[name.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length];
 }
 
-function initials(name: string) {
-  return name.split(" ").map(n => n[0]).join("").toUpperCase();
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
   onClose: () => void;
+  boardId?: number | null;
 }
 
-export function InviteMemberModal({ onClose }: Props) {
+export function InviteMemberModal({ onClose, boardId }: Props) {
+  const queryClient = useQueryClient();
   const [email,          setEmail]          = useState("");
   const [selectedRole,   setSelectedRole]   = useState<Role>("Member");
-  const [showSuggestions,setShowSuggestions]= useState(false);
-  const [pendingList,    setPendingList]    = useState<PendingInvite[]>(SEED_PENDING);
+  const [pendingList,    setPendingList]    = useState<PendingInvite[]>([]);
   const [sendSuccess,    setSendSuccess]    = useState(false);
   const [emailError,     setEmailError]     = useState("");
 
   const overlayRef    = useRef<HTMLDivElement>(null);
   const emailRef      = useRef<HTMLInputElement>(null);
-  const suggestionRef = useRef<HTMLDivElement>(null);
+
+  // API Mutation for inviting members
+  const inviteMutation = useMutation({
+    mutationFn: (payload: { email: string; role: string }) => {
+      if (!boardId) throw new Error("No active board selected.");
+      return boardsApi.inviteMember(boardId, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      if (boardId) {
+        queryClient.invalidateQueries({ queryKey: ["board-columns", boardId] });
+        queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+        queryClient.invalidateQueries({ queryKey: ["board-members-settings", boardId] });
+      }
+    },
+  });
 
   // Auto-focus email on mount
   useEffect(() => { emailRef.current?.focus(); }, []);
@@ -132,37 +111,7 @@ export function InviteMemberModal({ onClose }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Click-outside closes suggestions
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (
-        suggestionRef.current &&
-        !suggestionRef.current.contains(e.target as Node) &&
-        emailRef.current &&
-        !emailRef.current.contains(e.target as Node)
-      ) {
-        setShowSuggestions(false);
-      }
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
-
-  const filtered = SYSTEM_USERS.filter(u =>
-    email.length >= 1 &&
-    (u.email.toLowerCase().includes(email.toLowerCase()) ||
-     u.name.toLowerCase().includes(email.toLowerCase())) &&
-    !pendingList.some(p => p.email === u.email)
-  ).slice(0, 5);
-
-  function handleSelectSuggestion(u: SystemUser) {
-    setEmail(u.email);
-    setEmailError("");
-    setShowSuggestions(false);
-    setTimeout(() => emailRef.current?.focus(), 0);
-  }
-
-  function handleSend() {
+  async function handleSend() {
     if (!email.trim()) {
       setEmailError("Please enter an email address.");
       emailRef.current?.focus();
@@ -173,25 +122,35 @@ export function InviteMemberModal({ onClose }: Props) {
       emailRef.current?.focus();
       return;
     }
-    if (pendingList.some(p => p.email.toLowerCase() === email.trim().toLowerCase())) {
-      setEmailError("An invitation was already sent to this address.");
-      return;
-    }
     setEmailError("");
 
-    const systemUser = SYSTEM_USERS.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
-    const newInvite: PendingInvite = {
-      id: `p${Date.now()}`,
-      email: email.trim(),
-      name: systemUser?.name,
-      avatarColor: systemUser?.color ?? avatarColor(email.trim()),
-      role: selectedRole,
-      sentAt: "Just now",
-    };
-    setPendingList(prev => [newInvite, ...prev]);
-    setEmail("");
-    setSendSuccess(true);
-    setTimeout(() => setSendSuccess(false), 2800);
+    const apiRole = selectedRole === "Admin" ? "BOARD_ADMIN" : selectedRole === "Viewer" ? "VIEWER" : "MEMBER";
+
+    try {
+      await inviteMutation.mutateAsync({
+        email: email.trim(),
+        role: apiRole,
+      });
+
+      const newInvite: PendingInvite = {
+        id: `p${Date.now()}`,
+        email: email.trim(),
+        avatarColor: avatarColor(email.trim()),
+        role: selectedRole,
+        sentAt: "Just now",
+      };
+
+      setPendingList(prev => [newInvite, ...prev]);
+      setEmail("");
+      setSendSuccess(true);
+      setTimeout(() => setSendSuccess(false), 2800);
+    } catch (err: any) {
+      if (err.message === "Invalid request") {
+        setEmailError("This user is already a member of this board.");
+      } else {
+        setEmailError(err.message || "Failed to send invitation.");
+      }
+    }
   }
 
   function handleResend(id: string) {
@@ -269,9 +228,7 @@ export function InviteMemberModal({ onClose }: Props) {
                 <div className={`flex items-center gap-2.5 rounded-xl border bg-[#0f172a] px-3.5 transition-all ${
                   emailError
                     ? "border-[#ef4444] ring-2 ring-[#ef4444]/20"
-                    : showSuggestions && filtered.length > 0
-                      ? "border-[#6366f1]/50 ring-2 ring-[#6366f1]/15"
-                      : "border-[#1e293b] focus-within:border-[#6366f1]/50 focus-within:ring-2 focus-within:ring-[#6366f1]/15"
+                    : "border-[#1e293b] focus-within:border-[#6366f1]/50 focus-within:ring-2 focus-within:ring-[#6366f1]/15"
                 }`}>
                   <Mail className="h-4 w-4 text-[#334155] flex-shrink-0" />
                   <input
@@ -281,9 +238,7 @@ export function InviteMemberModal({ onClose }: Props) {
                     onChange={e => {
                       setEmail(e.target.value);
                       setEmailError("");
-                      setShowSuggestions(true);
                     }}
-                    onFocus={() => setShowSuggestions(true)}
                     onKeyDown={e => { if (e.key === "Enter") handleSend(); }}
                     placeholder="Enter email address..."
                     className="flex-1 bg-transparent py-2.5 text-sm text-[#f1f5f9] placeholder:text-[#334155] focus:outline-none"
@@ -298,40 +253,6 @@ export function InviteMemberModal({ onClose }: Props) {
                     </button>
                   )}
                 </div>
-
-                {/* Suggestion dropdown */}
-                {showSuggestions && filtered.length > 0 && (
-                  <div
-                    ref={suggestionRef}
-                    className="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl border border-[#1e293b] bg-[#111827] shadow-xl shadow-black/50 overflow-hidden"
-                  >
-                    <div className="px-3 pt-2.5 pb-1.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#334155]">
-                        Matching members
-                      </p>
-                    </div>
-                    {filtered.map((u, i) => (
-                      <button
-                        key={u.email}
-                        type="button"
-                        onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(u); }}
-                        className={`flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#1e293b] transition-colors ${i < filtered.length - 1 ? "border-b border-[#0f172a]" : ""}`}
-                      >
-                        <div
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white flex-shrink-0"
-                          style={{ backgroundColor: u.color }}
-                        >
-                          {initials(u.name)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[#f1f5f9] truncate">{u.name}</p>
-                          <p className="text-xs text-[#475569] truncate">{u.email}</p>
-                        </div>
-                        <span className="text-[10px] text-[#334155] flex-shrink-0">↵ select</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {emailError && (
@@ -421,7 +342,7 @@ export function InviteMemberModal({ onClose }: Props) {
             <button
               type="button"
               onClick={handleSend}
-              disabled={!canSend && !sendSuccess}
+              disabled={(!canSend && !sendSuccess) || inviteMutation.isPending}
               className="relative flex items-center justify-center gap-2 w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-[0.99] overflow-hidden"
               style={{
                 backgroundColor: sendSuccess
@@ -434,7 +355,12 @@ export function InviteMemberModal({ onClose }: Props) {
                 cursor: canSend || sendSuccess ? "pointer" : "default",
               }}
             >
-              {sendSuccess ? (
+              {inviteMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : sendSuccess ? (
                 <>
                   <Check className="h-4 w-4" strokeWidth={2.5} />
                   Invitation Sent!
@@ -453,7 +379,7 @@ export function InviteMemberModal({ onClose }: Props) {
           <div className="flex items-center gap-3 px-6 py-2">
             <div className="flex-1 h-px bg-[#1e293b]" />
             <span className="text-[10px] font-semibold uppercase tracking-widest text-[#334155] flex-shrink-0">
-              Pending Invitations
+              Invitations Sent in this Session
             </span>
             <div className="flex-1 h-px bg-[#1e293b]" />
           </div>
@@ -465,7 +391,7 @@ export function InviteMemberModal({ onClose }: Props) {
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e293b]">
                   <Mail className="h-5 w-5 text-[#334155]" />
                 </div>
-                <p className="text-sm text-[#334155]">No pending invitations</p>
+                <p className="text-sm text-[#334155]">No invitations sent yet in this session</p>
               </div>
             ) : (
               pendingList.map(invite => {
@@ -480,15 +406,12 @@ export function InviteMemberModal({ onClose }: Props) {
                       className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white flex-shrink-0 ring-2 ring-[#0c1421]"
                       style={{ backgroundColor: invite.avatarColor }}
                     >
-                      {invite.name ? initials(invite.name) : emailInitial(invite.email)}
+                      {emailInitial(invite.email)}
                     </div>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      {invite.name && (
-                        <p className="text-xs font-semibold text-[#f1f5f9] truncate">{invite.name}</p>
-                      )}
-                      <p className="text-xs text-[#64748b] truncate">{invite.email}</p>
+                      <p className="text-xs text-[#f1f5f9] truncate">{invite.email}</p>
                       <div className="flex items-center gap-1.5 mt-1">
                         <Clock className="h-2.5 w-2.5 text-[#334155] flex-shrink-0" />
                         <span className="text-[10px] text-[#334155]">Sent {invite.sentAt}</span>
@@ -518,18 +441,19 @@ export function InviteMemberModal({ onClose }: Props) {
                         type="button"
                         onClick={() => handleResend(invite.id)}
                         title="Resend invitation"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-[#475569] hover:bg-[#6366f1]/15 hover:text-[#6366f1] transition-colors"
+                        className="flex h-7.5 w-7.5 items-center justify-center rounded-lg border border-[#1e293b] bg-[#0c1421] text-[#475569] hover:bg-[#1e293b] hover:text-[#94a3b8] transition-colors"
                       >
-                        <RefreshCw
-                          className="h-3.5 w-3.5 transition-transform duration-700"
-                          style={{ animation: invite.resending ? "spin 0.8s linear infinite" : "none" }}
-                        />
+                        {invite.resending ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleCancel(invite.id)}
                         title="Cancel invitation"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-[#475569] hover:bg-[#ef4444]/12 hover:text-[#ef4444] transition-colors"
+                        className="flex h-7.5 w-7.5 items-center justify-center rounded-lg border border-[#1e293b] bg-[#0c1421] text-[#475569] hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -538,26 +462,10 @@ export function InviteMemberModal({ onClose }: Props) {
                 );
               })
             )}
-
-            {/* Pending count hint */}
-            {pendingList.length > 0 && (
-              <p className="text-center text-[11px] text-[#334155] mt-1">
-                {pendingList.length} pending invitation{pendingList.length !== 1 ? "s" : ""}
-              </p>
-            )}
           </div>
+
         </div>
       </motion.div>
-
-      <style>{`
-        @keyframes pendingPulse {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.35; }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </motion.div>
   );
 }

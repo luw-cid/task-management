@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X, Settings, Check, Lock, Users,
@@ -6,6 +8,8 @@ import {
   Tag, Pencil, Trash2, Plus,
   Archive, AlertTriangle,
 } from "lucide-react";
+import { labelsApi, boardsApi } from "../../api";
+import type { Label as ApiLabel } from "../../types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -25,30 +29,9 @@ const PRESET_LABEL_COLORS = [
   "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#64748b",
 ];
 
-const CURRENT_BOARD = "Project Alpha";
-
 type Tab       = "general" | "members" | "labels" | "danger";
 type Visibility = "private" | "team";
 type Role       = "Viewer" | "Member" | "Admin";
-
-// ─── Members data ─────────────────────────────────────────────────────────────
-
-const SYSTEM_USERS = [
-  { name: "Alice Johnson", email: "alice@taskflow.io",  color: "#6366f1" },
-  { name: "Marcus Webb",   email: "marcus@taskflow.io", color: "#10b981" },
-  { name: "Tom Wilson",    email: "tom@taskflow.io",    color: "#f59e0b" },
-  { name: "Sarah Chen",    email: "sarah@taskflow.io",  color: "#06b6d4" },
-  { name: "Priya Nair",    email: "priya@taskflow.io",  color: "#ef4444" },
-  { name: "Alex Rivera",   email: "alex@taskflow.io",   color: "#8b5cf6" },
-  { name: "Emily Davis",   email: "emily@taskflow.io",  color: "#ec4899" },
-  { name: "Raj Patel",     email: "raj@taskflow.io",    color: "#f97316" },
-];
-
-const ROLE_CONFIG: Record<Role, { Icon: React.ElementType; color: string; pillBg: string; pillText: string; desc: string }> = {
-  Viewer: { Icon: Eye,    color: "#64748b", pillBg: "bg-[#64748b]/12", pillText: "text-[#94a3b8]", desc: "Can view tasks and comments only" },
-  Member: { Icon: User,   color: "#3b82f6", pillBg: "bg-[#3b82f6]/12", pillText: "text-[#60a5fa]", desc: "Can create and manage tasks" },
-  Admin:  { Icon: Shield, color: "#6366f1", pillBg: "bg-[#6366f1]/12", pillText: "text-[#818cf8]", desc: "Full board management access" },
-};
 
 interface PendingInvite {
   id: string;
@@ -60,28 +43,16 @@ interface PendingInvite {
   resending?: boolean;
 }
 
-const SEED_PENDING: PendingInvite[] = [
-  { id: "p1", email: "sarah.k@company.com", avatarColor: "#0ea5e9", role: "Member", sentAt: "2 days ago" },
-  { id: "p2", email: "dev.mike@startup.io", avatarColor: "#8b5cf6", role: "Viewer",  sentAt: "5 days ago" },
-];
-
-// ─── Labels data ─────────────────────────────────────────────────────────────
-
-interface Label { id: string; name: string; color: string; }
-
-const SEED_LABELS: Label[] = [
-  { id: "l1", name: "Frontend", color: "#6366f1" },
-  { id: "l2", name: "Backend",  color: "#8b5cf6" },
-  { id: "l3", name: "Mobile",   color: "#f59e0b" },
-  { id: "l4", name: "Auth",     color: "#ef4444" },
-  { id: "l5", name: "Design",   color: "#06b6d4" },
-  { id: "l6", name: "DevOps",   color: "#10b981" },
-];
+const ROLE_CONFIG: Record<Role, { Icon: React.ElementType; color: string; pillBg: string; pillText: string; desc: string }> = {
+  Viewer: { Icon: Eye,    color: "#64748b", pillBg: "bg-[#64748b]/12", pillText: "text-[#94a3b8]", desc: "Can view tasks and comments only" },
+  Member: { Icon: User,   color: "#3b82f6", pillBg: "bg-[#3b82f6]/12", pillText: "text-[#60a5fa]", desc: "Can create and manage tasks" },
+  Admin:  { Icon: Shield, color: "#6366f1", pillBg: "bg-[#6366f1]/12", pillText: "text-[#818cf8]", desc: "Full board management access" },
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isValidEmail(e: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim()); }
-function initials(name: string)  { return name.split(" ").map(n => n[0]).join("").toUpperCase(); }
+function initials(name: string)  { return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2); }
 function emailInitial(email: string) { return email.charAt(0).toUpperCase(); }
 function avatarBgColor(s: string) {
   const p = ["#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899","#f97316"];
@@ -95,36 +66,46 @@ function ColorDot({ color, selected, onClick }: { color: string; selected?: bool
     <button
       type="button"
       onClick={onClick}
-      className="relative h-6 w-6 rounded-full flex-shrink-0 transition-all duration-150 hover:scale-110 focus:outline-none"
+      className="relative flex h-7.5 w-7.5 items-center justify-center rounded-lg flex-shrink-0 transition-all duration-150 hover:scale-110 focus:outline-none"
       style={{
         backgroundColor: color,
-        boxShadow:  selected ? `0 0 0 2px #111827, 0 0 0 3.5px ${color}` : undefined,
-        transform:  selected ? "scale(1.18)" : undefined,
+        border: selected ? "2px solid #111827" : "none",
+        boxShadow: selected ? `0 0 0 2px ${color}` : "none",
       }}
-      title={color}
     >
-      {selected && <Check className="absolute inset-0 m-auto h-3 w-3 text-white drop-shadow-sm" strokeWidth={2.8} />}
+      {selected && <Check className="h-4 w-4 text-white drop-shadow-sm" strokeWidth={2.8} />}
     </button>
   );
 }
 
 // ─── General Tab ─────────────────────────────────────────────────────────────
 
-function GeneralTab() {
-  const [name,        setName]        = useState(CURRENT_BOARD);
-  const [description, setDescription] = useState("Track features, milestones, and releases for the core product.");
-  const [color,       setColor]       = useState("#6366f1");
+function GeneralTab({ boardId, currentBoard }: { boardId: number | null; currentBoard: any }) {
+  const queryClient = useQueryClient();
+  const [name,        setName]        = useState(currentBoard?.name ?? "");
+  const [description, setDescription] = useState(currentBoard?.description ?? "");
+  const [color,       setColor]       = useState(currentBoard?.color ?? "#6366f1");
   const [visibility,  setVisibility]  = useState<Visibility>("team");
   const [saved,       setSaved]       = useState(false);
 
+  const updateBoardMutation = useMutation({
+    mutationFn: (payload: { name: string; description: string }) => {
+      if (!boardId) throw new Error("No active board");
+      return boardsApi.updateBoard(boardId, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2200);
+    },
+  });
+
   function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2200);
+    updateBoardMutation.mutate({ name, description });
   }
 
   return (
     <div className="flex flex-col gap-5 px-6 py-5">
-
       {/* Board Name */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-[#f1f5f9]">Board Name</label>
@@ -223,16 +204,20 @@ function GeneralTab() {
       <button
         type="button"
         onClick={handleSave}
-        className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.99]"
+        disabled={updateBoardMutation.isPending}
+        className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.99] disabled:opacity-50"
         style={{
           backgroundColor: saved ? "#10b981" : color,
           boxShadow: `0 4px 16px -4px ${saved ? "#10b98150" : color + "50"}`,
         }}
       >
-        {saved
-          ? <><Check className="h-4 w-4" strokeWidth={2.5} /> Changes Saved!</>
-          : "Save Changes"
-        }
+        {updateBoardMutation.isPending ? (
+          <RefreshCw className="h-4 w-4 animate-spin" />
+        ) : saved ? (
+          <><Check className="h-4 w-4" strokeWidth={2.5} /> Changes Saved!</>
+        ) : (
+          "Save Changes"
+        )}
       </button>
     </div>
   );
@@ -240,119 +225,104 @@ function GeneralTab() {
 
 // ─── Members Tab ─────────────────────────────────────────────────────────────
 
-function MembersTab() {
+function MembersTab({ boardId, ownerId }: { boardId: number | null; ownerId?: number }) {
+  const queryClient = useQueryClient();
   const [email,           setEmail]           = useState("");
   const [selectedRole,    setSelectedRole]    = useState<Role>("Member");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [pendingList,     setPendingList]     = useState<PendingInvite[]>(SEED_PENDING);
+  const [pendingList,     setPendingList]     = useState<PendingInvite[]>([]);
   const [sendSuccess,     setSendSuccess]     = useState(false);
   const [emailError,      setEmailError]      = useState("");
 
   const emailRef      = useRef<HTMLInputElement>(null);
-  const suggestionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { emailRef.current?.focus(); }, []);
 
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (
-        suggestionRef.current && !suggestionRef.current.contains(e.target as Node) &&
-        emailRef.current    && !emailRef.current.contains(e.target as Node)
-      ) setShowSuggestions(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
+  // Fetch actual members
+  const membersQuery = useQuery({
+    queryKey: ["board-members-settings", boardId],
+    queryFn: () => {
+      if (!boardId) throw new Error("No active board");
+      return boardsApi.getBoardMembers(boardId);
+    },
+    enabled: !!boardId,
+  });
 
-  const filtered = SYSTEM_USERS.filter(u =>
-    email.length >= 1 &&
-    (u.email.toLowerCase().includes(email.toLowerCase()) || u.name.toLowerCase().includes(email.toLowerCase())) &&
-    !pendingList.some(p => p.email === u.email)
-  ).slice(0, 5);
+  const inviteMutation = useMutation({
+    mutationFn: (payload: { email: string; role: string }) => {
+      if (!boardId) throw new Error("No active board");
+      const apiRole = payload.role === "Admin" ? "BOARD_ADMIN" : payload.role === "Viewer" ? "VIEWER" : "MEMBER";
+      return boardsApi.inviteMember(boardId, { email: payload.email, role: apiRole });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board-members-settings", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      setSendSuccess(true);
+      setEmail("");
+      setTimeout(() => setSendSuccess(false), 2800);
+    },
+    onError: (err: any) => {
+      if (err.message === "Invalid request") {
+        setEmailError("This user is already a member of this board.");
+      } else {
+        setEmailError(err.message || "Failed to invite member.");
+      }
+    }
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (userId: number) => {
+      if (!boardId) throw new Error("No active board");
+      return boardsApi.removeMember(boardId, userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board-members-settings", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+    },
+  });
 
   function handleSend() {
     if (!email.trim())    { setEmailError("Please enter an email address."); return; }
     if (!isValidEmail(email)) { setEmailError("Please enter a valid email address."); return; }
-    if (pendingList.some(p => p.email.toLowerCase() === email.trim().toLowerCase())) {
-      setEmailError("An invitation was already sent to this address."); return;
+    if (members.some(m => m.email.toLowerCase() === email.trim().toLowerCase())) {
+      setEmailError("This user is already a member of this board.");
+      return;
     }
     setEmailError("");
-    const su = SYSTEM_USERS.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
-    setPendingList(prev => [{
-      id: `p${Date.now()}`, email: email.trim(), name: su?.name,
-      avatarColor: su?.color ?? avatarBgColor(email.trim()), role: selectedRole, sentAt: "Just now",
-    }, ...prev]);
-    setEmail("");
-    setSendSuccess(true);
-    setTimeout(() => setSendSuccess(false), 2800);
-  }
-
-  function handleResend(id: string) {
-    setPendingList(prev => prev.map(p => p.id === id ? { ...p, resending: true, sentAt: "Just now" } : p));
-    setTimeout(() => setPendingList(prev => prev.map(p => p.id === id ? { ...p, resending: false } : p)), 1200);
+    inviteMutation.mutate({ email: email.trim(), role: selectedRole });
   }
 
   const canSend = email.trim().length > 0 && isValidEmail(email);
+  const members = membersQuery.data ?? [];
 
   return (
     <div className="flex flex-col gap-5 px-6 py-5">
-
       {/* Email */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-[#f1f5f9]">Email Address</label>
-        <div className="relative">
-          <div className={[
-            "flex items-center gap-2.5 rounded-xl border bg-[#0f172a] px-3.5 transition-all",
-            emailError
-              ? "border-[#ef4444] ring-2 ring-[#ef4444]/20"
-              : "border-[#1e293b] focus-within:border-[#6366f1]/50 focus-within:ring-2 focus-within:ring-[#6366f1]/15",
-          ].join(" ")}>
-            <Mail className="h-4 w-4 text-[#334155] flex-shrink-0" />
-            <input
-              ref={emailRef}
-              type="email"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setEmailError(""); setShowSuggestions(true); }}
-              onFocus={() => setShowSuggestions(true)}
-              onKeyDown={e => { if (e.key === "Enter") handleSend(); }}
-              placeholder="Enter email address..."
-              className="flex-1 bg-transparent py-2.5 text-sm text-[#f1f5f9] placeholder:text-[#334155] focus:outline-none"
-            />
-            {email && (
-              <button type="button" onClick={() => { setEmail(""); setEmailError(""); }}
-                className="flex h-5 w-5 items-center justify-center rounded-full text-[#334155] hover:bg-[#1e293b] hover:text-[#64748b] transition-colors flex-shrink-0">
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-          {showSuggestions && filtered.length > 0 && (
-            <div ref={suggestionRef} className="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl border border-[#1e293b] bg-[#111827] shadow-xl shadow-black/50 overflow-hidden">
-              <div className="px-3 pt-2.5 pb-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#334155]">Matching members</p>
-              </div>
-              {filtered.map((u, i) => (
-                <button key={u.email} type="button"
-                  onMouseDown={e => { e.preventDefault(); setEmail(u.email); setEmailError(""); setShowSuggestions(false); }}
-                  className={`flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#1e293b] transition-colors ${i < filtered.length - 1 ? "border-b border-[#0f172a]" : ""}`}>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: u.color }}>{initials(u.name)}</div>
-                  <div className="flex-1 min-w-0"><p className="text-sm font-medium text-[#f1f5f9] truncate">{u.name}</p><p className="text-xs text-[#475569] truncate">{u.email}</p></div>
-                  <span className="text-[10px] text-[#334155] flex-shrink-0">↵ select</span>
-                </button>
-              ))}
-            </div>
-          )}
+        <div className={[
+          "flex items-center gap-2.5 rounded-xl border bg-[#0f172a] px-3.5 transition-all",
+          emailError
+            ? "border-[#ef4444] ring-2 ring-[#ef4444]/20"
+            : "border-[#1e293b] focus-within:border-[#6366f1]/50 focus-within:ring-2 focus-within:ring-[#6366f1]/15",
+        ].join(" ")}>
+          <Mail className="h-4 w-4 text-[#334155] flex-shrink-0" />
+          <input
+            ref={emailRef}
+            type="email"
+            value={email}
+            onChange={e => { setEmail(e.target.value); setEmailError(""); }}
+            onKeyDown={e => { if (e.key === "Enter") handleSend(); }}
+            placeholder="Enter email address"
+            className="flex-1 bg-transparent py-2.5 text-sm text-[#f1f5f9] placeholder:text-[#334155] focus:outline-none"
+          />
         </div>
-        {emailError && (
-          <p className="text-xs text-[#ef4444] flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-[#ef4444] flex-shrink-0" />{emailError}
-          </p>
-        )}
+        {emailError && <p className="text-xs text-[#ef4444] mt-1">{emailError}</p>}
       </div>
 
-      {/* Role selector */}
+      {/* Role */}
       <div className="flex flex-col gap-2.5">
         <label className="text-sm font-medium text-[#f1f5f9]">Role</label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2.5">
           {(["Viewer", "Member", "Admin"] as Role[]).map(role => {
             const { Icon, color, desc } = ROLE_CONFIG[role];
             const active = selectedRole === role;
@@ -379,75 +349,66 @@ function MembersTab() {
       </div>
 
       {/* Send button */}
-      <button type="button" onClick={handleSend} disabled={!canSend && !sendSuccess}
-        className="flex items-center justify-center gap-2 w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-[0.99]"
+      <button type="button" onClick={handleSend} disabled={(!canSend && !sendSuccess) || inviteMutation.isPending}
+        className="flex items-center justify-center gap-2 w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-[0.99] disabled:opacity-50"
         style={{
           backgroundColor: sendSuccess ? "#10b981" : canSend ? "#6366f1" : "#1e293b",
           color: canSend || sendSuccess ? "#fff" : "#334155",
           boxShadow: canSend && !sendSuccess ? "0 4px 16px -4px rgba(99,102,241,0.5)" : "none",
           cursor: canSend || sendSuccess ? "pointer" : "default",
         }}>
-        {sendSuccess
-          ? <><Check className="h-4 w-4" strokeWidth={2.5} />Invitation Sent!</>
-          : <><Send className="h-4 w-4" />Send Invitation</>
-        }
+        {inviteMutation.isPending ? (
+          <RefreshCw className="h-4 w-4 animate-spin" />
+        ) : sendSuccess ? (
+          <><Check className="h-4 w-4" strokeWidth={2.5} />Invitation Sent!</>
+        ) : (
+          <><Send className="h-4 w-4" />Send Invitation</>
+        )}
       </button>
 
       {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px bg-[#1e293b]" />
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-[#334155]">Pending Invitations</span>
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-[#334155]">Current Members</span>
         <div className="flex-1 h-px bg-[#1e293b]" />
       </div>
 
-      {/* Pending list */}
-      <div className="flex flex-col gap-2">
-        {pendingList.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-6 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e293b]"><Mail className="h-5 w-5 text-[#334155]" /></div>
-            <p className="text-sm text-[#334155]">No pending invitations</p>
-          </div>
+      {/* Actual Members list */}
+      <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+        {membersQuery.isLoading ? (
+          <div className="text-xs text-muted-foreground text-center py-4">Loading members...</div>
         ) : (
-          pendingList.map(invite => {
-            const { pillBg, pillText } = ROLE_CONFIG[invite.role];
+          members.map(m => {
+            const isOwner = m.userId === ownerId;
             return (
-              <div key={invite.id} className="group flex items-center gap-3 rounded-xl border border-[#1e293b] bg-[#0c1421] px-4 py-3 hover:border-[#334155]/60 transition-all">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white flex-shrink-0" style={{ backgroundColor: invite.avatarColor }}>
-                  {invite.name ? initials(invite.name) : emailInitial(invite.email)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  {invite.name && <p className="text-xs font-semibold text-[#f1f5f9] truncate">{invite.name}</p>}
-                  <p className="text-xs text-[#64748b] truncate">{invite.email}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Clock className="h-2.5 w-2.5 text-[#334155] flex-shrink-0" />
-                    <span className="text-[10px] text-[#334155]">Sent {invite.sentAt}</span>
+              <div key={m.id} className="group flex items-center justify-between rounded-xl border border-[#1e293b] bg-[#0c1421] px-4 py-2.5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white flex-shrink-0" style={{ backgroundColor: avatarBgColor(m.fullName) }}>
+                    {initials(m.fullName)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-[#f1f5f9] truncate">{m.fullName}</p>
+                    <p className="text-[10px] text-[#64748b] truncate">{m.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillBg} ${pillText}`}>{invite.role}</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 px-2 py-0.5 text-[10px] font-semibold text-[#f59e0b]">
-                    <span className="h-1.5 w-1.5 rounded-full flex-shrink-0 bg-[#f59e0b]" />
-                    Pending
+                  <span className="rounded-full bg-[#3b82f6]/10 px-2 py-0.5 text-[9px] font-medium text-[#60a5fa]">
+                    {isOwner ? "Owner" : m.role === "BOARD_ADMIN" ? "Admin" : m.role === "VIEWER" ? "Viewer" : "Member"}
                   </span>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button type="button" onClick={() => handleResend(invite.id)} title="Resend invitation"
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-[#475569] hover:bg-[#6366f1]/15 hover:text-[#6366f1] transition-colors">
-                    <RefreshCw className="h-3.5 w-3.5" style={{ animation: invite.resending ? "spin 0.8s linear infinite" : "none" }} />
-                  </button>
-                  <button type="button" onClick={() => setPendingList(prev => prev.filter(p => p.id !== invite.id))} title="Cancel invitation"
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-[#475569] hover:bg-[#ef4444]/12 hover:text-[#ef4444] transition-colors">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  {!isOwner && (
+                    <button
+                      onClick={() => removeMutation.mutate(m.userId)}
+                      disabled={removeMutation.isPending}
+                      className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                      title="Remove member"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })
-        )}
-        {pendingList.length > 0 && (
-          <p className="text-center text-[11px] text-[#334155] mt-1">
-            {pendingList.length} pending invitation{pendingList.length !== 1 ? "s" : ""}
-          </p>
         )}
       </div>
     </div>
@@ -456,35 +417,111 @@ function MembersTab() {
 
 // ─── Labels Tab ───────────────────────────────────────────────────────────────
 
-function LabelsTab() {
-  const [newColor,     setNewColor]     = useState("#6366f1");
+function LabelsTab({ boardId }: { boardId: number | null }) {
+  const queryClient = useQueryClient();
   const [newName,      setNewName]      = useState("");
+  const [newColor,     setNewColor]     = useState(PRESET_LABEL_COLORS[0]);
   const [newNameError, setNewNameError] = useState("");
-  const [labels,       setLabels]       = useState<Label[]>(SEED_LABELS);
-  const [editingId,    setEditingId]    = useState<string | null>(null);
-  const [editColor,    setEditColor]    = useState("");
+  const [submitError,  setSubmitError]  = useState("");
+  const [editingId,    setEditingId]    = useState<number | null>(null);
   const [editName,     setEditName]     = useState("");
+  const [editColor,    setEditColor]    = useState("");
 
   const newNameRef  = useRef<HTMLInputElement>(null);
   const editNameRef = useRef<HTMLInputElement>(null);
+
+  const labelsQuery = useQuery({
+    queryKey: ["board-labels", boardId],
+    queryFn: () => {
+      if (!boardId) throw new Error("No active board selected");
+      return labelsApi.getByBoard(boardId);
+    },
+    enabled: boardId !== null,
+  });
+
+  const createLabelMutation = useMutation({
+    mutationFn: (payload: { name: string; color: string }) => {
+      if (!boardId) throw new Error("No active board selected");
+      return labelsApi.create(boardId, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board-labels", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+    },
+  });
+
+  const updateLabelMutation = useMutation({
+    mutationFn: (payload: { id: number; name: string; color: string }) => {
+      if (!boardId) throw new Error("No active board selected");
+      return labelsApi.update(boardId, payload.id, { name: payload.name, color: payload.color });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board-labels", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+    },
+  });
+
+  const deleteLabelMutation = useMutation({
+    mutationFn: (id: number) => {
+      if (!boardId) throw new Error("No active board selected");
+      return labelsApi.delete(boardId, id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board-labels", boardId] });
+      queryClient.invalidateQueries({ queryKey: ["board-tasks", boardId] });
+    },
+  });
+
+  const labels = labelsQuery.data ?? [];
 
   useEffect(() => {
     if (editingId) setTimeout(() => editNameRef.current?.focus(), 40);
   }, [editingId]);
 
-  function startEdit(label: Label) { setEditingId(label.id); setEditColor(label.color); setEditName(label.name); }
-  function saveEdit() {
-    if (!editName.trim()) return;
-    setLabels(prev => prev.map(l => l.id === editingId ? { ...l, name: editName.trim(), color: editColor } : l));
-    setEditingId(null);
+  function startEdit(label: ApiLabel) {
+    setSubmitError("");
+    setEditingId(label.id);
+    setEditColor(label.color);
+    setEditName(label.name);
   }
-  function addLabel() {
+
+  async function saveEdit() {
+    const trimmed = editName.trim();
+    if (!trimmed || editingId === null) return;
+    if (labels.some((label) => label.id !== editingId && label.name.toLowerCase() === trimmed.toLowerCase())) {
+      setSubmitError("A label with this name already exists.");
+      return;
+    }
+
+    try {
+      setSubmitError("");
+      await updateLabelMutation.mutateAsync({ id: editingId, name: trimmed, color: editColor });
+      setEditingId(null);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to update label.");
+    }
+  }
+
+  async function addLabel() {
     const trimmed = newName.trim();
-    if (!trimmed) { setNewNameError("Enter a label name."); return; }
-    if (labels.some(l => l.name.toLowerCase() === trimmed.toLowerCase())) { setNewNameError("A label with this name already exists."); return; }
-    setLabels(prev => [...prev, { id: `l${Date.now()}`, name: trimmed, color: newColor }]);
-    setNewName(""); setNewNameError("");
-    newNameRef.current?.focus();
+    if (!trimmed) {
+      setNewNameError("Enter a label name.");
+      return;
+    }
+    if (labels.some((label) => label.name.toLowerCase() === trimmed.toLowerCase())) {
+      setNewNameError("A label with this name already exists.");
+      return;
+    }
+
+    try {
+      setSubmitError("");
+      await createLabelMutation.mutateAsync({ name: trimmed, color: newColor });
+      setNewName("");
+      setNewNameError("");
+      newNameRef.current?.focus();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to create label.");
+    }
   }
 
   return (
@@ -506,8 +543,8 @@ function LabelsTab() {
             ref={newNameRef}
             type="text"
             value={newName}
-            onChange={e => { setNewName(e.target.value.slice(0, 32)); setNewNameError(""); }}
-            onKeyDown={e => e.key === "Enter" && addLabel()}
+            onChange={e => { setNewName(e.target.value.slice(0, 32)); setNewNameError(""); setSubmitError(""); }}
+            onKeyDown={e => { if (e.key === "Enter") void addLabel(); }}
             placeholder="Label name"
             className={[
               "flex-1 rounded-lg border bg-[#1e293b] px-3 py-2 text-sm text-[#f1f5f9]",
@@ -517,13 +554,15 @@ function LabelsTab() {
                 : "border-[#334155] focus:ring-[#6366f1]/20 focus:border-[#6366f1]/60",
             ].join(" ")}
           />
-          <button type="button" onClick={addLabel}
+          <button type="button" onClick={() => void addLabel()}
+            disabled={boardId === null || createLabelMutation.isPending}
             className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold text-white transition-all active:scale-[0.97] flex-shrink-0"
             style={{ backgroundColor: newColor, boxShadow: `0 2px 10px -2px ${newColor}60` }}>
             <Plus className="h-3.5 w-3.5" />Add
           </button>
         </div>
         {newNameError && <p className="mt-1.5 text-[11px] text-[#ef4444] pl-10">{newNameError}</p>}
+        {!newNameError && submitError && <p className="mt-1.5 text-[11px] text-[#ef4444] pl-10">{submitError}</p>}
       </div>
 
       {/* Existing labels */}
@@ -533,46 +572,69 @@ function LabelsTab() {
           <span className="inline-flex items-center justify-center h-4 min-w-[18px] rounded-full px-1.5 text-[9px] font-bold text-[#94a3b8] bg-[#1e293b]">{labels.length}</span>
         </div>
 
-        {labels.length === 0 ? (
+        {labelsQuery.isLoading ? (
           <div className="flex flex-col items-center gap-2 py-6 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e293b]"><Tag className="h-5 w-5 text-[#334155]" /></div>
-            <p className="text-sm text-[#334155]">No labels yet</p>
+            <p className="text-sm text-[#64748b]">Loading labels...</p>
+          </div>
+        ) : labels.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-center bg-[#0c1421] rounded-xl border border-[#1e293b] border-dashed">
+            <Tag className="h-5 w-5 text-[#334155]" />
+            <p className="text-xs text-[#475569]">No labels created yet</p>
           </div>
         ) : labels.map(label => {
           const isEditing = editingId === label.id;
-          return isEditing ? (
-            <div key={label.id} className="flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-all"
-              style={{ borderColor: editColor + "40", backgroundColor: editColor + "08" }}>
-              <div className="h-6 w-6 rounded-full flex-shrink-0" style={{ backgroundColor: editColor }} />
-              <input ref={editNameRef} type="text" value={editName}
-                onChange={e => setEditName(e.target.value.slice(0, 32))}
-                onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
-                className="flex-1 min-w-0 rounded-lg border border-[#334155] bg-[#0f172a] px-2.5 py-1.5 text-sm text-[#f1f5f9] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/25 focus:border-[#6366f1]/60 transition-all"
-              />
-              <button type="button" onClick={saveEdit}
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#10b981]/12 text-[#10b981] hover:bg-[#10b981]/22 transition-colors flex-shrink-0">
-                <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-              </button>
-              <button type="button" onClick={() => setEditingId(null)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ef4444]/8 text-[#ef4444]/50 hover:bg-[#ef4444]/15 hover:text-[#ef4444] transition-colors flex-shrink-0">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <div key={label.id} className="group flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-[#1e293b]/60 transition-colors">
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium select-none"
-                style={{ backgroundColor: label.color + "16", color: label.color, border: `1px solid ${label.color}28` }}>
-                <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: label.color }} />
-                <span className="truncate max-w-[180px]">{label.name}</span>
-              </span>
-              <div className="flex-1" />
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-150">
-                <button type="button" onClick={() => startEdit(label)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[#475569] hover:bg-[#1e293b] hover:text-[#94a3b8] transition-colors">
+          if (isEditing) {
+            return (
+              <div key={label.id} className="flex items-center gap-2.5 rounded-xl border border-[#6366f1]/40 bg-[#6366f1]/5 px-4.5 py-3 transition-all duration-200">
+                <div className="flex-1 min-w-0 flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {PRESET_LABEL_COLORS.map(c => (
+                      <ColorDot key={c} color={c} selected={editColor === c} onClick={() => setEditColor(c)} />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg flex-shrink-0 transition-colors duration-200"
+                      style={{ backgroundColor: editColor + "22", border: `2px solid ${editColor}55`, boxShadow: `inset 0 0 0 3px ${editColor}` }} />
+                    <input ref={editNameRef} type="text" value={editName} onChange={e => setEditName(e.target.value.slice(0, 32))}
+                      onKeyDown={e => { if (e.key === "Enter") void saveEdit(); }}
+                      className="flex-1 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-2 text-sm text-[#f1f5f9] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]/60 transition-all" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => void saveEdit()} disabled={updateLabelMutation.isPending}
+                    className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-[#10b981]/15 text-[#10b981] hover:bg-[#10b981]/25 transition-colors">
+                    <Check className="h-4 w-4" />
+                  </button>
+                  <button type="button" onClick={() => setEditingId(null)}
+                    className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-[#334155]/20 text-[#64748b] hover:bg-[#334155]/40 hover:text-[#94a3b8] transition-colors">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div key={label.id} className="group flex items-center justify-between gap-3 rounded-xl border border-[#1e293b] bg-[#0c1421] px-4 py-3 hover:border-[#334155]/60 transition-all">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: label.color, boxShadow: `0 0 10px -1px ${label.color}b0` }} />
+                <span className="text-sm font-medium text-[#f1f5f9] truncate">{label.name}</span>
+                {label.taskCount > 0 && (
+                  <span className="rounded-full bg-[#1e293b] px-2 py-0.5 text-[9px] font-semibold text-[#475569]">{label.taskCount} task{label.taskCount !== 1 ? "s" : ""}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button type="button" onClick={() => startEdit(label)} title="Edit label"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[#475569] hover:bg-[#6366f1]/15 hover:text-[#6366f1] transition-colors">
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button type="button"
-                  onClick={() => { setLabels(prev => prev.filter(l => l.id !== label.id)); if (editingId === label.id) setEditingId(null); }}
+                  onClick={() => {
+                    if (confirm(`Delete label "${label.name}"? This cannot be undone.`)) {
+                      deleteLabelMutation.mutate(label.id);
+                    }
+                  }}
+                  disabled={deleteLabelMutation.isPending}
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-[#475569] hover:bg-[#ef4444]/12 hover:text-[#ef4444] transition-colors">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -720,13 +782,48 @@ function DeleteConfirmModal({ boardName, onClose, onConfirm }: { boardName: stri
 
 interface Props {
   onClose: () => void;
+  boardId: number | null;
 }
 
-export function BoardSettingsModal({ onClose }: Props) {
+export function BoardSettingsModal({ onClose, boardId }: Props) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab,        setActiveTab]        = useState<Tab>("general");
   const [showDeleteConfirm,setShowDeleteConfirm]= useState(false);
 
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Fetch actual board details from workspace
+  const boardsQuery = useQuery({
+    queryKey: ["boards"],
+    queryFn: boardsApi.getMyBoards,
+  });
+
+  const currentBoard = boardsQuery.data?.find((b) => b.id === boardId) ?? null;
+  const boardName = currentBoard?.name ?? "Board Settings";
+
+  const deleteBoardMutation = useMutation({
+    mutationFn: () => {
+      if (!boardId) throw new Error("No active board selected");
+      return boardsApi.deleteBoard(boardId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      onClose();
+      navigate("/");
+    },
+  });
+
+  const archiveBoardMutation = useMutation({
+    mutationFn: () => {
+      if (!boardId) throw new Error("No active board selected");
+      return boardsApi.archiveBoard(boardId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
+      onClose();
+    },
+  });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -778,7 +875,7 @@ export function BoardSettingsModal({ onClose }: Props) {
             </div>
             <div>
               <h2 className="text-base font-semibold text-[#f1f5f9]">Board Settings</h2>
-              <p className="text-xs text-[#475569] mt-0.5">{CURRENT_BOARD}</p>
+              <p className="text-xs text-[#475569] mt-0.5">{boardName}</p>
             </div>
           </div>
           <button
@@ -830,13 +927,13 @@ export function BoardSettingsModal({ onClose }: Props) {
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.14 }}
             >
-              {activeTab === "general" && <GeneralTab />}
-              {activeTab === "members" && <MembersTab />}
-              {activeTab === "labels"  && <LabelsTab />}
+              {activeTab === "general" && <GeneralTab boardId={boardId} currentBoard={currentBoard} />}
+              {activeTab === "members" && <MembersTab boardId={boardId} ownerId={currentBoard?.ownerId} />}
+              {activeTab === "labels"  && <LabelsTab boardId={boardId} />}
               {activeTab === "danger"  && (
                 <DangerZoneTab
                   onDeleteClick={() => setShowDeleteConfirm(true)}
-                  onArchive={onClose}
+                  onArchive={() => archiveBoardMutation.mutate()}
                 />
               )}
             </motion.div>
@@ -847,9 +944,9 @@ export function BoardSettingsModal({ onClose }: Props) {
         <AnimatePresence>
           {showDeleteConfirm && (
             <DeleteConfirmModal
-              boardName={CURRENT_BOARD}
+              boardName={boardName}
               onClose={() => setShowDeleteConfirm(false)}
-              onConfirm={() => { setShowDeleteConfirm(false); onClose(); }}
+              onConfirm={() => deleteBoardMutation.mutate()}
             />
           )}
         </AnimatePresence>

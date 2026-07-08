@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import {
   X, Bug, Star, ArrowUp, Zap, Flame, ChevronUp, Minus, ChevronDown,
   Calendar, Search, Plus, Check, Tag, User,
 } from "lucide-react";
-import type { BoardMember, Column, Label as BoardLabel } from "../../types";
+import { columnsApi, labelsApi } from "../../api";
+import type { Board } from "../../types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -12,6 +14,7 @@ type TaskTypeOption = "FEATURE" | "BUG" | "IMPROVEMENT" | "EPIC";
 type PriorityOption = "critical" | "high" | "medium" | "low";
 
 export interface NewTask {
+  boardId: number;
   type: TaskTypeOption;
   title: string;
   description: string;
@@ -25,9 +28,8 @@ export interface NewTask {
 interface Props {
   onClose: () => void;
   onCreate?: (task: NewTask) => Promise<void>;
-  columns?: Column[];
-  members?: BoardMember[];
-  availableLabels?: BoardLabel[];
+  boards?: Board[];
+  initialBoardId?: number | null;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -51,30 +53,6 @@ const PRIORITY_CONFIG: Record<
   medium:   { label: "Medium",   Icon: Minus,      color: "#f59e0b" },
   low:      { label: "Low",      Icon: ChevronDown, color: "#94a3b8" },
 };
-
-const DEFAULT_COLUMNS = [
-  { id: "todo",        label: "To Do",       color: "#64748b" },
-  { id: "in-progress", label: "In Progress", color: "#6366f1" },
-  { id: "review",      label: "In Review",   color: "#f59e0b" },
-  { id: "done",        label: "Done",        color: "#10b981" },
-];
-
-const DEFAULT_MEMBERS = [
-  "Alice Johnson", "Sarah Chen", "Tom Wilson",
-  "Marcus Webb",  "Priya Nair", "Alex Rivera",
-  "Emily Davis",  "Raj Patel",
-];
-
-const DEFAULT_PRESET_LABELS: { label: string; color: string }[] = [
-  { label: "Frontend",   color: "#6366f1" },
-  { label: "Backend",    color: "#8b5cf6" },
-  { label: "Design",     color: "#06b6d4" },
-  { label: "Auth",       color: "#ef4444" },
-  { label: "Mobile",     color: "#f59e0b" },
-  { label: "DevOps",     color: "#10b981" },
-  { label: "Performance",color: "#f97316" },
-  { label: "A11y",       color: "#22d3ee" },
-];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -107,13 +85,14 @@ function DropdownChevron({ open }: { open: boolean }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CreateTaskModal({ onClose, onCreate, columns = [], members = [], availableLabels = [] }: Props) {
+export function CreateTaskModal({ onClose, onCreate, boards = [], initialBoardId = null }: Props) {
   // Task type & priority
   const [taskType, setTaskType]   = useState<TaskTypeOption>("FEATURE");
   const [priority, setPriority]   = useState<PriorityOption>("high");
   const [autoSetBy, setAutoSetBy] = useState<TaskTypeOption>("FEATURE");
 
   // Form fields
+  const [boardId, setBoardId]           = useState<number | null>(initialBoardId ?? boards[0]?.id ?? null);
   const [title, setTitle]               = useState("");
   const [titleError, setTitleError]     = useState("");
   const [description, setDescription]   = useState("");
@@ -125,6 +104,7 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dropdown states
+  const [boardOpen, setBoardOpen]       = useState(false);
   const [columnOpen, setColumnOpen]     = useState(false);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
@@ -134,6 +114,7 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
   // Refs
   const overlayRef    = useRef<HTMLDivElement>(null);
   const titleRef      = useRef<HTMLInputElement>(null);
+  const boardRef      = useRef<HTMLDivElement>(null);
   const columnRef     = useRef<HTMLDivElement>(null);
   const priorityRef   = useRef<HTMLDivElement>(null);
   const assigneeRef   = useRef<HTMLDivElement>(null);
@@ -152,6 +133,7 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
   // Click-outside closes all dropdowns
   useEffect(() => {
     function onDown(e: MouseEvent) {
+      if (boardRef.current    && !boardRef.current.contains(e.target as Node))    setBoardOpen(false);
       if (columnRef.current   && !columnRef.current.contains(e.target as Node))   setColumnOpen(false);
       if (priorityRef.current && !priorityRef.current.contains(e.target as Node)) setPriorityOpen(false);
       if (assigneeRef.current && !assigneeRef.current.contains(e.target as Node)) { setAssigneeOpen(false); setAssigneeSearch(""); }
@@ -160,6 +142,29 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
+
+  useEffect(() => {
+    if (initialBoardId && boards.some((board) => board.id === initialBoardId)) {
+      setBoardId(initialBoardId);
+      return;
+    }
+
+    if (boards.length > 0 && !boards.some((board) => board.id === boardId)) {
+      setBoardId(boards[0].id);
+    }
+  }, [boardId, boards, initialBoardId]);
+
+  const selectedBoard = boards.find((board) => board.id === boardId) ?? null;
+  const boardColumnsQuery = useQuery({
+    queryKey: ["create-task-columns", boardId],
+    queryFn: () => columnsApi.getByBoard(boardId!),
+    enabled: boardId !== null,
+  });
+  const boardLabelsQuery = useQuery({
+    queryKey: ["create-task-labels", boardId],
+    queryFn: () => labelsApi.getByBoard(boardId!),
+    enabled: boardId !== null,
+  });
 
   // Auto-set priority on type change (Factory Pattern)
   function handleTypeSelect(type: TaskTypeOption) {
@@ -174,15 +179,23 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!boardId) {
+      setSubmitError("Please select a board.");
+      return;
+    }
     if (!title.trim()) {
       setTitleError("Title is required.");
       titleRef.current?.focus();
       return;
     }
+    if (!column) {
+      setSubmitError("Please select a column.");
+      return;
+    }
     setSubmitError("");
     setIsSubmitting(true);
     try {
-      await onCreate?.({ type: taskType, title: title.trim(), description: description.trim(), column, priority, assignee, deadline, labels });
+      await onCreate?.({ boardId, type: taskType, title: title.trim(), description: description.trim(), column, priority, assignee, deadline, labels });
       onClose();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Unable to create task.");
@@ -199,20 +212,14 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
     );
   }
 
-  const columnOptions = columns.length > 0
-    ? columns.map((item) => ({
-        id: String(item.id),
-        label: item.name,
-        color: getColumnColor(item.name),
-      }))
-    : DEFAULT_COLUMNS;
-  const memberOptions = members.length > 0
-    ? members.map((member) => member.fullName)
-    : DEFAULT_MEMBERS;
-  const labelOptions = availableLabels.length > 0
-    ? availableLabels.map((label) => ({ label: label.name, color: label.color }))
-    : DEFAULT_PRESET_LABELS;
-  const currentCol = columnOptions.find((c) => c.id === column) ?? columnOptions[0];
+  const columnOptions = (boardColumnsQuery.data ?? []).map((item) => ({
+    id: String(item.id),
+    label: item.name,
+    color: getColumnColor(item.name),
+  }));
+  const memberOptions = selectedBoard?.members.map((member) => member.fullName) ?? [];
+  const labelOptions = (boardLabelsQuery.data ?? []).map((label) => ({ label: label.name, color: label.color }));
+  const currentCol = columnOptions.find((c) => c.id === column) ?? columnOptions[0] ?? null;
   const currentPriority = PRIORITY_CONFIG[priority];
   const PIcon          = currentPriority.Icon;
   const filteredMembers = memberOptions.filter((m) =>
@@ -222,8 +229,18 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
   useEffect(() => {
     if (columnOptions.length > 0 && !columnOptions.some((option) => option.id === column)) {
       setColumn(columnOptions[0].id);
+      return;
+    }
+    if (columnOptions.length === 0) {
+      setColumn("");
     }
   }, [column, columnOptions]);
+
+  useEffect(() => {
+    setAssignee(null);
+    setLabels([]);
+    setSubmitError("");
+  }, [boardId]);
 
   return (
     <motion.div
@@ -265,7 +282,44 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
         {/* ── Scrollable form body ─────────────────────────────────────── */}
         <form onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0">
           <div className="flex flex-col gap-5 px-6 py-5 overflow-y-auto flex-1">
-
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-[#f1f5f9]">
+                Board
+                <span className="text-[#ef4444] ml-0.5">*</span>
+              </label>
+              <div ref={boardRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => boards.length > 0 && setBoardOpen((v) => !v)}
+                  disabled={boards.length === 0}
+                  className="flex items-center gap-2 w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3.5 py-2.5 text-sm text-[#f1f5f9] hover:border-[#475569] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#6366f1] flex-shrink-0" />
+                  <span className={`flex-1 text-left truncate ${selectedBoard ? "text-[#f1f5f9]" : "text-[#475569]"}`}>
+                    {selectedBoard?.name ?? "No board available"}
+                  </span>
+                  <DropdownChevron open={boardOpen} />
+                </button>
+                {boardOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-[#334155] bg-[#1e293b] shadow-xl shadow-black/50 overflow-hidden">
+                    {boards.map((board) => (
+                      <button
+                        key={board.id}
+                        type="button"
+                        onClick={() => { setBoardId(board.id); setBoardOpen(false); }}
+                        className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-sm text-left hover:bg-[#334155]/60 transition-colors"
+                      >
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#6366f1] flex-shrink-0" />
+                        <span className={`flex-1 truncate ${boardId === board.id ? "text-[#f1f5f9] font-medium" : "text-[#94a3b8]"}`}>
+                          {board.name}
+                        </span>
+                        {boardId === board.id && <Check className="h-3.5 w-3.5 text-[#6366f1] flex-shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
             {/* ── Task Type ───────────────────────────────────────────── */}
             <div className="flex flex-col gap-2.5">
               <label className="text-sm font-medium text-[#f1f5f9]">Task Type</label>
@@ -348,14 +402,23 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
                 <div ref={columnRef} className="relative">
                   <button
                     type="button"
+                    disabled={columnOptions.length === 0}
                     onClick={() => setColumnOpen((v) => !v)}
-                    className="flex items-center gap-2 w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3.5 py-2.5 text-sm text-[#f1f5f9] hover:border-[#475569] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] transition-all"
+                    className="flex items-center gap-2 w-full rounded-lg border border-[#334155] bg-[#0f172a] px-3.5 py-2.5 text-sm text-[#f1f5f9] hover:border-[#475569] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 focus:border-[#6366f1] transition-all disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <span
-                      className="h-2 w-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: currentCol.color }}
-                    />
-                    <span className="flex-1 text-left truncate">{currentCol.label}</span>
+                    {currentCol ? (
+                      <>
+                        <span
+                          className="h-2 w-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: currentCol.color }}
+                        />
+                        <span className="flex-1 text-left truncate">{currentCol.label}</span>
+                      </>
+                    ) : (
+                      <span className="flex-1 text-left truncate text-[#475569]">
+                        {boardColumnsQuery.isLoading ? "Loading columns..." : "This board has no columns"}
+                      </span>
+                    )}
                     <DropdownChevron open={columnOpen} />
                   </button>
                   {columnOpen && (
@@ -377,6 +440,9 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
                     </div>
                   )}
                 </div>
+                {selectedBoard && !boardColumnsQuery.isLoading && columnOptions.length === 0 && (
+                  <p className="text-xs text-[#f59e0b]">Board này chưa có cột, nên chưa thể tạo task.</p>
+                )}
               </div>
 
               {/* Priority */}
@@ -488,7 +554,9 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
                       {/* Member list */}
                       <div className="max-h-[160px] overflow-y-auto">
                         {filteredMembers.length === 0 ? (
-                          <p className="px-3.5 py-3 text-xs text-[#475569]">No members found</p>
+                          <p className="px-3.5 py-3 text-xs text-[#475569]">
+                            {selectedBoard ? "No members found" : "Select a board first"}
+                          </p>
                         ) : filteredMembers.map((m) => (
                           <button
                             key={m}
@@ -588,6 +656,9 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
                           </button>
                         );
                       })}
+                      {labelOptions.length === 0 && (
+                        <p className="text-xs text-[#475569]">Board này chưa có label nào.</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -619,7 +690,7 @@ export function CreateTaskModal({ onClose, onCreate, columns = [], members = [],
                 Cancel
               </button>
               <button
-                disabled={isSubmitting}
+                disabled={isSubmitting || !boardId || columnOptions.length === 0}
                 type="submit"
                 className="flex items-center gap-2 rounded-lg bg-[#6366f1] px-5 py-2 text-sm font-medium text-white hover:bg-[#5254cc] active:scale-[0.98] transition-all shadow shadow-[#6366f1]/30 disabled:cursor-not-allowed disabled:opacity-70"
               >
