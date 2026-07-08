@@ -129,7 +129,7 @@ public class TaskService {
         User currentUser = SecurityUtils.getCurrentUser();
         checkBoardMember(boardId, currentUser);
 
-        List<Task> tasks = taskRepository.findAllByBoardIdOrderByCreatedAtDesc(boardId);
+        List<Task> tasks = taskRepository.findAllBoardWithRelations(boardId);
         // ★ STRATEGY PATTERN
         // Chọn cách sắp xếp tại runtime dựa vào tham số sortBy
         TaskSortContext sortContext = TaskSortContext.of(sortBy);
@@ -143,7 +143,7 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByColumn (Long boardId, Long columnId) {
         User currentUser = SecurityUtils.getCurrentUser();
         checkBoardMember(boardId, currentUser);
@@ -260,6 +260,7 @@ public class TaskService {
     }
 
     // Gán người thực hiện task
+    @Transactional
     public TaskResponse assignTask(Long boardId, Long taskId, AssignTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
         checkBoardMember(boardId, currentUser);

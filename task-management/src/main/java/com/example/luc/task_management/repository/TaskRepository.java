@@ -96,4 +96,14 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     //Get the largest position in the column
     @Query("SELECT MAX(t.position) FROM Task t WHERE t.column.id = :columnId")
     Optional<Integer> findMaxPositionByColumnId(@Param("columnId") Long columnId);
+
+    @Query("""
+            SELECT DISTINCT t FROM Task t
+            LEFT JOIN FETCH t.assignee
+            LEFT JOIN t.labels
+            LEFT JOIN t.subtasks
+            WHERE t.board.id = :boardId
+            ORDER BY t.createdAt DESC
+            """)
+    List<Task> findAllBoardWithRelations(@Param("boardId") Long boardId);
 }
