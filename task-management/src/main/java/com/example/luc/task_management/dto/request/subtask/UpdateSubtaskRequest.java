@@ -11,5 +11,5 @@ public class UpdateSubtaskRequest {
     @Size(min = 1, max = 255, message = "Title must be between from 1 to 255 characters long")
     private String title;
 
-    private Boolean Completed;
+    private Boolean completed;
 }
