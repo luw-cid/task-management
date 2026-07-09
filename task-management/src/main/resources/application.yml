@@ -20,7 +20,7 @@ spring:
     hikari:
       pool-name: TaskManagerHikariPool
       minimum-idle: 5
-      maximum-pool-size: 20
+      maximum-pool-size: 8
       idle-timeout: 300000        # 5 minute
       connection-timeout: 20000   # 20s
       max-lifetime: 1200000       # 20 minute
