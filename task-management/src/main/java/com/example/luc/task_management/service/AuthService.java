@@ -14,6 +14,7 @@ import com.example.luc.task_management.security.JwtTokenProvider;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -27,9 +28,9 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuthService {
     private final UserRepository userRepository;
-    private  final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final JwtTokenProvider jwtTokenProvider;
-    private  final AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -128,5 +129,4 @@ public class AuthService {
                 .user(AuthResponse.UserInfo.fromEntity(user))
                 .build();
     }
-
 }

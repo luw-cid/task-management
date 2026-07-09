@@ -1,4 +1,4 @@
-import { api, clearAuthTokens, getRefreshToken, setAuthTokens, unwrapResponse } from "./axios";
+import { api, clearAuthTokens, setAccessToken, unwrapResponse } from "./axios";
 import type { AuthResponse, LoginRequest, RegisterRequest } from "../types";
 
 interface ApiUserInfo {
@@ -11,7 +11,7 @@ interface ApiUserInfo {
 
 interface ApiAuthResponse {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   tokenType: string;
   user: ApiUserInfo;
 }
@@ -19,7 +19,7 @@ interface ApiAuthResponse {
 function normalizeAuthResponse(response: ApiAuthResponse): AuthResponse {
   return {
     accessToken: response.accessToken,
-    refreshToken: response.refreshToken,
+    refreshToken: response.refreshToken || "",
     tokenType: response.tokenType,
     user: {
       id: response.user.id,
@@ -33,7 +33,7 @@ function normalizeAuthResponse(response: ApiAuthResponse): AuthResponse {
 
 async function persistAuthResponse(request: ReturnType<typeof api.post>) {
   const response = normalizeAuthResponse(await unwrapResponse<ApiAuthResponse>(request));
-  setAuthTokens(response.accessToken, response.refreshToken);
+  setAccessToken(response.accessToken);
   return response;
 }
 
@@ -52,18 +52,9 @@ export const authApi = {
     );
   },
 
-  async logout(refreshToken = getRefreshToken()) {
-    if (!refreshToken) {
-      clearAuthTokens();
-      return;
-    }
-
+  async logout() {
     try {
-      await unwrapResponse(
-        api.post("/auth/logout", null, {
-          params: { refreshToken },
-        })
-      );
+      await unwrapResponse(api.post("/auth/logout"));
     } finally {
       clearAuthTokens();
     }

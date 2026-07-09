@@ -22,7 +22,7 @@ import { ManageLabelsModal } from "./components/ManageLabelsModal";
 import { BoardSettingsModal } from "./components/BoardSettingsModal";
 import { NoNotificationsState } from "./components/EmptyStates";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { authApi, boardsApi, clearAuthTokens, columnsApi, labelsApi, notificationsApi, tasksApi, usersApi } from "../api";
+import { api, authApi, boardsApi, clearAuthTokens, columnsApi, labelsApi, notificationsApi, setAccessToken, tasksApi, usersApi } from "../api";
 import type { Column, CreateBoardRequest, LoginRequest, RegisterRequest, Task, TaskStatus, UserProfile } from "../types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1334,7 +1334,8 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
 
 export default function App() {
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem("token"));
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     function handleAuthExpired() {
@@ -1346,6 +1347,24 @@ export default function App() {
     window.addEventListener("taskflow:auth-expired", handleAuthExpired);
     return () => window.removeEventListener("taskflow:auth-expired", handleAuthExpired);
   }, [navigate]);
+
+  useEffect(() => {
+    async function restoreSession() {
+      try {
+        const response = await api.post("/auth/refresh");
+        const accessToken = response.data.data.accessToken;
+        
+        setAccessToken(accessToken);
+        setIsAuthenticated(true);
+      } catch (err) {
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    restoreSession();
+  }, []);
 
   async function handleSignIn(payload: LoginRequest | RegisterRequest) {
     if ("fullName" in payload) {
@@ -1361,6 +1380,17 @@ export default function App() {
   async function handleLogout() {
     await authApi.logout();
     setIsAuthenticated(false);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#070b13] text-[#7c8aa7]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1b2742] border-t-[#6d6cf8]" />
+          <p className="text-sm font-medium">Loading session...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

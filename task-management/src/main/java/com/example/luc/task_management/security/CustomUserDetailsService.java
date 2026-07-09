@@ -19,7 +19,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         return userRepository.findByEmail(username)
                 .map(CustomUserDetails::new) // Bọc User vào CustomUserDetails
                 .orElseThrow(() -> new UsernameNotFoundException(
-                        "Không tìm thấy user với email: " + username
+                        "Cannot found user and email: " + username
                 ));
     }
 }

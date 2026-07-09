@@ -13,36 +13,27 @@ const DEFAULT_API_URL = "http://localhost:8080/api";
 
 const isBrowser = typeof window !== "undefined";
 
+// Biến trong bộ nhớ để lưu giữ Access Token tạm thời (chống truy cập từ XSS)
+let accessTokenInMemory: string | null = null;
+
 export const api = axios.create({
   baseURL: (import.meta.env.VITE_API_URL ?? DEFAULT_API_URL).replace(/\/+$/, ""),
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // Cho phép tự động đính kèm và nhận HTTP-Only Cookie
 });
 
 export function getAccessToken() {
-  return isBrowser ? localStorage.getItem(ACCESS_TOKEN_KEY) : null;
+  return accessTokenInMemory;
 }
 
-export function getRefreshToken() {
-  return isBrowser ? localStorage.getItem(REFRESH_TOKEN_KEY) : null;
-}
-
-export function setAuthTokens(accessToken: string, refreshToken?: string | null) {
-  if (!isBrowser) return;
-
-  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-
-  if (refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  }
+export function setAccessToken(token: string | null) {
+  accessTokenInMemory = token;
 }
 
 export function clearAuthTokens() {
-  if (!isBrowser) return;
-
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  accessTokenInMemory = null;
 }
 
 function notifyAuthExpired() {
@@ -63,11 +54,67 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<ApiResponse<unknown>>) => {
-    if (error.response?.status === 401) {
-      notifyAuthExpired();
+  async (error: AxiosError<ApiResponse<unknown>>) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && originalRequest && !(originalRequest as any)._retry) {
+      const url = originalRequest.url || "";
+      
+      // Không thực hiện silent refresh đối với các endpoint auth (login, register, refresh)
+      if (url.includes("/auth/login") || url.includes("/auth/register") || url.includes("/auth/refresh")) {
+        if (url.includes("/auth/refresh")) {
+          notifyAuthExpired();
+        }
+        const message = error.response?.data?.message ?? error.message ?? "Authentication failed";
+        return Promise.reject(new Error(message));
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.set("Authorization", `Bearer ${token}`);
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      (originalRequest as any)._retry = true;
+      isRefreshing = true;
+
+      try {
+        const response = await api.post<ApiResponse<{ accessToken: string }>>("/auth/refresh");
+        const newAccessToken = response.data.data.accessToken;
+
+        setAccessToken(newAccessToken);
+        isRefreshing = false;
+        processQueue(null, newAccessToken);
+
+        originalRequest.headers.set("Authorization", `Bearer ${newAccessToken}`);
+        return api(originalRequest);
+      } catch (refreshError) {
+        isRefreshing = false;
+        processQueue(refreshError, null);
+        notifyAuthExpired();
+        return Promise.reject(refreshError);
+      }
     }
 
     const message =
