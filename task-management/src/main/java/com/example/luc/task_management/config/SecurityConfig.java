@@ -2,6 +2,7 @@ package com.example.luc.task_management.config;
 
 import com.example.luc.task_management.security.CustomUserDetailsService;
 import com.example.luc.task_management.security.JwtAuthenticationFilter;
+import com.example.luc.task_management.security.RateLimitingFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,6 +33,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
+    private final RateLimitingFilter rateLimitingFilter;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -69,8 +71,8 @@ public class SecurityConfig {
                                     response.getWriter().write("{\"status\": 401, \"message\": \"You are not logged in yet\"}");
                                 })))
                 .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
