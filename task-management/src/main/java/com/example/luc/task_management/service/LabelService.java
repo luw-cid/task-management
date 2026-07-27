@@ -3,15 +3,15 @@ package com.example.luc.task_management.service;
 import com.example.luc.task_management.dto.request.label.CreateLabelRequest;
 import com.example.luc.task_management.dto.request.label.UpdateLabelRequest;
 import com.example.luc.task_management.dto.response.LabelResponse;
-import com.example.luc.task_management.entity.Board;
-import com.example.luc.task_management.entity.Label;
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.Board;
+import com.example.luc.task_management.entity.mysql.Label;
+import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.enums.BoardRole;
 import com.example.luc.task_management.exception.AppException;
 import com.example.luc.task_management.exception.ErrorCode;
-import com.example.luc.task_management.repository.BoardMemberRepository;
-import com.example.luc.task_management.repository.BoardRepository;
-import com.example.luc.task_management.repository.LabelRepository;
+import com.example.luc.task_management.repository.jpa.BoardMemberRepository;
+import com.example.luc.task_management.repository.jpa.BoardRepository;
+import com.example.luc.task_management.repository.jpa.LabelRepository;
 import com.example.luc.task_management.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,11 +29,12 @@ public class LabelService {
     private final LabelRepository labelRepository;
     private final BoardRepository boardRepository;
     private final BoardMemberRepository boardMemberRepository;
+    private final BoardSecurityService boardSecurityService;
 
     @Transactional
     public LabelResponse createLabel(Long boardId, CreateLabelRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         if (labelRepository.existsByBoardIdAndName(boardId, request.getName())) {
             throw new AppException(ErrorCode.LABEL_ALREADY_EXISTS);
@@ -68,7 +69,7 @@ public class LabelService {
     public LabelResponse updateLabel(Long boardId, Long labelId,
                                      UpdateLabelRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        getBoardAndCheckAdmin(boardId, currentUser);
+        boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         Label label = labelRepository.findByIdAndBoardId(labelId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.LABEL_NOT_FOUND));
@@ -92,7 +93,7 @@ public class LabelService {
     @Transactional
     public void deleteLabel(Long boardId, Long labelId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        getBoardAndCheckAdmin(boardId, currentUser);
+        boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         Label label = labelRepository.findByIdAndBoardId(labelId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.LABEL_NOT_FOUND));
@@ -142,19 +143,19 @@ public class LabelService {
     }
 
 
-    private Board getBoardAndCheckAdmin(Long boardId, User user) {
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
-
-        boolean isAdmin = board.getOwner().getId().equals(user.getId()) ||
-                boardMemberRepository.findByBoardAndUser(board, user)
-                        .map(m -> m.getRole() == BoardRole.BOARD_ADMIN)
-                        .orElse(false);
-
-        if (!isAdmin) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
-
-        return board;
-    }
+//    private Board getBoardAndCheckAdmin(Long boardId, User user) {
+//        Board board = boardRepository.findById(boardId)
+//                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
+//
+//        boolean isAdmin = board.getOwner().getId().equals(user.getId()) ||
+//                boardMemberRepository.findByBoardAndUser(board, user)
+//                        .map(m -> m.getRole() == BoardRole.BOARD_ADMIN)
+//                        .orElse(false);
+//
+//        if (!isAdmin) {
+//            throw new AppException(ErrorCode.FORBIDDEN);
+//        }
+//
+//        return board;
+//    }
 }

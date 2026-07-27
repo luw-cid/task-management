@@ -5,15 +5,15 @@ import com.example.luc.task_management.dto.request.comment.UpdateCommentRequest;
 import com.example.luc.task_management.dto.response.CommentResponse;
 import com.example.luc.task_management.dto.websocket.WebSocketMessage;
 import com.example.luc.task_management.dto.websocket.WebSocketMessageType;
-import com.example.luc.task_management.entity.Comment;
-import com.example.luc.task_management.entity.Task;
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.Comment;
+import com.example.luc.task_management.entity.mysql.Task;
+import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.exception.AppException;
 import com.example.luc.task_management.exception.ErrorCode;
 import com.example.luc.task_management.pattern.observer.CommentObserver;
-import com.example.luc.task_management.repository.BoardRepository;
-import com.example.luc.task_management.repository.CommentRepository;
-import com.example.luc.task_management.repository.TaskRepository;
+import com.example.luc.task_management.repository.jpa.BoardRepository;
+import com.example.luc.task_management.repository.jpa.CommentRepository;
+import com.example.luc.task_management.repository.jpa.TaskRepository;
 import com.example.luc.task_management.util.SecurityUtils;
 import com.example.luc.task_management.websocket.WebSocketBroadcaster;
 import lombok.RequiredArgsConstructor;
@@ -36,11 +36,12 @@ public class CommentService {
     private final TaskRepository taskRepository;
     private final BoardRepository boardRepository;
     private final CommentObserver commentObserver;
+    private final BoardSecurityService boardSecurityService;
 
     @Transactional
     public CommentResponse addComment(Long boardId, Long taskId, CreateCommentRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -76,7 +77,7 @@ public class CommentService {
     @Transactional(readOnly = true)
     public List<CommentResponse> getComments(Long boardId, Long taskId, int page, int size) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -92,7 +93,7 @@ public class CommentService {
     @Transactional
     public CommentResponse updateComment(Long boardId, Long taskId, Long commentId, UpdateCommentRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -128,7 +129,7 @@ public class CommentService {
     @Transactional
     public void deleteComment(Long boardId, Long taskId, Long commentId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -158,9 +159,9 @@ public class CommentService {
         webSocketBroadcaster.broadcastToTask(taskId, wsMessage);
     }
 
-    private void checkBoardMember(Long boardId, User user) {
-        if (!boardRepository.isUserInBoard(boardId, user.getId())) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
-    }
+//    private void checkBoardMember(Long boardId, User user) {
+//        if (!boardRepository.isUserInBoard(boardId, user.getId())) {
+//            throw new AppException(ErrorCode.FORBIDDEN);
+//        }
+//    }
 }

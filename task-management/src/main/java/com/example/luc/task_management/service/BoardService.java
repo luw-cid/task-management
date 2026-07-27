@@ -5,17 +5,17 @@ import com.example.luc.task_management.dto.request.board.InviteMemberRequest;
 import com.example.luc.task_management.dto.request.board.UpdateBoardRequest;
 import com.example.luc.task_management.dto.response.BoardMemberResponse;
 import com.example.luc.task_management.dto.response.BoardResponse;
-import com.example.luc.task_management.entity.Board;
-import com.example.luc.task_management.entity.BoardMember;
-import com.example.luc.task_management.entity.ColumnEntity;
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.Board;
+import com.example.luc.task_management.entity.mysql.BoardMember;
+import com.example.luc.task_management.entity.mysql.ColumnEntity;
+import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.enums.BoardRole;
 import com.example.luc.task_management.exception.AppException;
 import com.example.luc.task_management.exception.ErrorCode;
-import com.example.luc.task_management.repository.BoardMemberRepository;
-import com.example.luc.task_management.repository.BoardRepository;
-import com.example.luc.task_management.repository.ColumnRepository;
-import com.example.luc.task_management.repository.UserRepository;
+import com.example.luc.task_management.repository.jpa.BoardMemberRepository;
+import com.example.luc.task_management.repository.jpa.BoardRepository;
+import com.example.luc.task_management.repository.jpa.ColumnRepository;
+import com.example.luc.task_management.repository.jpa.UserRepository;
 import com.example.luc.task_management.util.SecurityUtils;
 import com.example.luc.task_management.enums.NotificationType;
 import com.example.luc.task_management.enums.ReferenceType;
@@ -38,6 +38,7 @@ public class BoardService {
     private final ColumnRepository columnRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final BoardSecurityService boardSecurityService;
 
     @Transactional
     public BoardResponse createBoard(CreateBoardRequest request) {
@@ -92,7 +93,7 @@ public class BoardService {
     @Transactional
     public BoardResponse updateBoard(Long boardId, UpdateBoardRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         // Ch update field nào có giá trị
         if (request.getName() != null) {
@@ -108,7 +109,7 @@ public class BoardService {
     @Transactional
     public void deleteBoard(Long boardId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         boardRepository.delete(board);
         log.info("Board deleted: {} by {}", board.getName(), currentUser.getEmail());
@@ -117,7 +118,7 @@ public class BoardService {
     @Transactional
     public BoardMemberResponse inviteMember(Long boardId, InviteMemberRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         User invitedUser = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -151,7 +152,7 @@ public class BoardService {
     @Transactional
     public void removeMember(Long boardId, Long userId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         // can't delete member
         if (board.getOwner().getId().equals(userId)) {
@@ -194,7 +195,7 @@ public class BoardService {
     @Transactional
     public void archiveBoard(Long boardId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         // Check if the board has been archived
         if (board.getIsArchived()) {
@@ -209,7 +210,7 @@ public class BoardService {
     @Transactional
     public void unarchiveBoard(Long boardId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        Board board = getBoardAndCheckAdmin(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         // Check if the board has been archived
         if (!board.getIsArchived()) {
@@ -221,23 +222,23 @@ public class BoardService {
         log.info("Board unarchived: {} by {}", board.getName(), currentUser.getEmail());
     }
 
-    private Board getBoardAndCheckAdmin(Long boardId, User user) {
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
-
-        // Chỉ owner hoặc boadrd_admin mới được thực hiện
-        boolean isAdmin = board.getOwner().getId().equals(user.getId()) ||
-                boardMemberRepository.findByBoardAndUser(board, user)
-                        .map(m -> m.getRole() == BoardRole.BOARD_ADMIN)
-                        .orElse(false);
-
-        if (!isAdmin) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
-
-
-        return board;
-    }
+//    private Board getBoardAndCheckAdmin(Long boardId, User user) {
+//        Board board = boardRepository.findById(boardId)
+//                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
+//
+//        // Chỉ owner hoặc boadrd_admin mới được thực hiện
+//        boolean isAdmin = board.getOwner().getId().equals(user.getId()) ||
+//                boardMemberRepository.findByBoardAndUser(board, user)
+//                        .map(m -> m.getRole() == BoardRole.BOARD_ADMIN)
+//                        .orElse(false);
+//
+//        if (!isAdmin) {
+//            throw new AppException(ErrorCode.FORBIDDEN);
+//        }
+//
+//
+//        return board;
+//    }
 
     private void createDefaultColumn(Board board) {
         List<String> defaultColumns = List.of("To Do", "In Progress", "Done");

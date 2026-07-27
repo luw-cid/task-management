@@ -7,7 +7,7 @@ import com.example.luc.task_management.dto.request.task.UpdateTaskRequest;
 import com.example.luc.task_management.dto.response.TaskResponse;
 import com.example.luc.task_management.dto.websocket.WebSocketMessage;
 import com.example.luc.task_management.dto.websocket.WebSocketMessageType;
-import com.example.luc.task_management.entity.*;
+import com.example.luc.task_management.entity.mysql.*;
 import com.example.luc.task_management.enums.ActivityAction;
 import com.example.luc.task_management.enums.TaskStatus;
 import com.example.luc.task_management.exception.AppException;
@@ -20,7 +20,7 @@ import com.example.luc.task_management.pattern.factory.TaskFactory;
 import com.example.luc.task_management.pattern.factory.TaskProduct;
 import com.example.luc.task_management.pattern.observer.TaskEvenPublisher;
 import com.example.luc.task_management.pattern.strategy.TaskSortContext;
-import com.example.luc.task_management.repository.*;
+import com.example.luc.task_management.repository.jpa.*;
 import com.example.luc.task_management.util.SecurityUtils;
 import com.example.luc.task_management.websocket.WebSocketBroadcaster;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +44,7 @@ public class TaskService {
     private final CommandInvoker commandInvoker;
     private final TaskEvenPublisher taskEvenPublisher;
     private final WebSocketBroadcaster webSocketBroadcaster;
+    private final BoardSecurityService boardSecurityService;
 
     // ─────────────────────────────────────────
     // TẠO TASK – Dùng Factory Pattern
@@ -51,8 +52,8 @@ public class TaskService {
     @Transactional
     public TaskResponse createTask(Long boardId, CreateTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
-        checkBoardNotArchive(boardId);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardNotArchive(boardId);
 
         ColumnEntity column = columnRepository.findByIdAndBoardId(request.getColumnId(), boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.COLUMN_NOT_FOUND));
@@ -127,7 +128,7 @@ public class TaskService {
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByBoard(Long boardId, String sortBy) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         List<Task> tasks = taskRepository.findAllBoardWithRelations(boardId);
         // ★ STRATEGY PATTERN
@@ -146,7 +147,7 @@ public class TaskService {
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByColumn (Long boardId, Long columnId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         List<Task> tasks = taskRepository.findAllByColumnIdOrderByPositionAsc(columnId);
 
@@ -161,7 +162,7 @@ public class TaskService {
     @Transactional (readOnly = true)
     public TaskResponse getTaskById(Long boardId, Long taskId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId
                         (taskId, boardId)
@@ -174,7 +175,7 @@ public class TaskService {
     @Transactional
     public TaskResponse updateTask(Long boardId, Long taskId, UpdateTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -220,7 +221,7 @@ public class TaskService {
     @Transactional
     public TaskResponse moveTask(Long boardId, Long taskId, MoveTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -263,7 +264,7 @@ public class TaskService {
     @Transactional
     public TaskResponse assignTask(Long boardId, Long taskId, AssignTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -306,7 +307,7 @@ public class TaskService {
     @Transactional
     public void deleteTask (Long boardId, Long taskId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -325,18 +326,18 @@ public class TaskService {
         log.info("Task deleted: {} by {}", task.getTitle(), currentUser.getEmail());
     }
 
-    private void checkBoardMember(Long boardId, User user) {
-        if (!boardRepository.isUserInBoard(boardId, user.getId())) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
-    }
-
-    private void checkBoardNotArchive(Long boardId) {
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
-
-        if (board.getIsArchived()) {
-            throw new AppException(ErrorCode.BOARD_ARCHIVED);
-        }
-    }
+//    private void checkBoardMember(Long boardId, User user) {
+//        if (!boardRepository.isUserInBoard(boardId, user.getId())) {
+//            throw new AppException(ErrorCode.FORBIDDEN);
+//        }
+//    }
+//
+//    private void checkBoardNotArchive(Long boardId) {
+//        Board board = boardRepository.findById(boardId)
+//                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
+//
+//        if (board.getIsArchived()) {
+//            throw new AppException(ErrorCode.BOARD_ARCHIVED);
+//        }
+//    }
 }

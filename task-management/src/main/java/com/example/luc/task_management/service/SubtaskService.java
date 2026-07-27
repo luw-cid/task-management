@@ -3,17 +3,17 @@ package com.example.luc.task_management.service;
 import com.example.luc.task_management.dto.request.subtask.CreateSubtaskRequest;
 import com.example.luc.task_management.dto.request.subtask.UpdateSubtaskRequest;
 import com.example.luc.task_management.dto.response.SubtaskResponse;
-import com.example.luc.task_management.entity.ActivityLog;
-import com.example.luc.task_management.entity.Subtask;
-import com.example.luc.task_management.entity.Task;
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.ActivityLog;
+import com.example.luc.task_management.entity.mysql.Subtask;
+import com.example.luc.task_management.entity.mysql.Task;
+import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.enums.ActivityAction;
 import com.example.luc.task_management.exception.AppException;
 import com.example.luc.task_management.exception.ErrorCode;
-import com.example.luc.task_management.repository.ActivityLogRepository;
-import com.example.luc.task_management.repository.BoardRepository;
-import com.example.luc.task_management.repository.SubTaskRepository;
-import com.example.luc.task_management.repository.TaskRepository;
+import com.example.luc.task_management.repository.jpa.ActivityLogRepository;
+import com.example.luc.task_management.repository.jpa.BoardRepository;
+import com.example.luc.task_management.repository.jpa.SubTaskRepository;
+import com.example.luc.task_management.repository.jpa.TaskRepository;
 import com.example.luc.task_management.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,11 +32,12 @@ public class SubtaskService {
     private final TaskRepository taskRepository;
     private final BoardRepository boardRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final BoardSecurityService boardSecurityService;
 
     @Transactional
     public SubtaskResponse createSubtask(Long boardId, Long taskId, CreateSubtaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -66,7 +67,7 @@ public class SubtaskService {
     @Transactional(readOnly = true)
     public List<SubtaskResponse> getSubtasks(Long boardId, Long taskId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -80,7 +81,7 @@ public class SubtaskService {
     @Transactional
     public SubtaskResponse updateSubtask(Long boardId, Long taskId, Long subtaskId, UpdateSubtaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -109,7 +110,7 @@ public class SubtaskService {
 
     public void deleteSubtask(Long boardId, Long taskId, Long subtaskId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        checkBoardMember(boardId, currentUser);
+        boardSecurityService.checkBoardMember(boardId, currentUser);
 
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
@@ -121,11 +122,11 @@ public class SubtaskService {
         log.info("Subtask deleted: {}", subtaskId);
     }
 
-    private void checkBoardMember(Long boardId, User user) {
-        if (!boardRepository.isUserInBoard(boardId, user.getId())) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
-    }
+//    private void checkBoardMember(Long boardId, User user) {
+//        if (!boardRepository.isUserInBoard(boardId, user.getId())) {
+//            throw new AppException(ErrorCode.FORBIDDEN);
+//        }
+//    }
 
     private void saveActivityLog(Task task, User user, ActivityAction action, String value) {
         ActivityLog log = ActivityLog.builder()
