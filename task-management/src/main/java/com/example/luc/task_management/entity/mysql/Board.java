@@ -9,8 +9,8 @@ import java.util.List;
 @Entity
 @Table(name = "boards")
 @Getter @Setter
-//@NoArgsConstructor
-//@AllArgsConstructor
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class Board extends BaseEntity{
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
