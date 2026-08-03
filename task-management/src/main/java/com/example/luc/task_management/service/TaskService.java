@@ -45,6 +45,7 @@ public class TaskService {
     private final TaskEvenPublisher taskEvenPublisher;
     private final WebSocketBroadcaster webSocketBroadcaster;
     private final BoardSecurityService boardSecurityService;
+    private final ChatService chatService;
 
     // ─────────────────────────────────────────
     // TẠO TASK – Dùng Factory Pattern
@@ -313,6 +314,8 @@ public class TaskService {
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
 
         taskRepository.delete(task);
+
+        chatService.deleteAllByTask(taskId);
 
         // Bổ sung WebSocket thông báo xóa task để UI ẩn ngay lập tức
         WebSocketMessage<Long> wsMessage = WebSocketMessage.of(

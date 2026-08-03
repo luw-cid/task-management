@@ -26,5 +26,9 @@ public enum WebSocketMessageType {
     // Column events
     COLUMN_CREATED,
     COLUMN_UPDATED,
-    COLUMN_DELETED
+    COLUMN_DELETED,
+
+    // Chat message
+    CHAT_MESSAGE,
+    CHAT_MESSAGE_DELETE,
 }

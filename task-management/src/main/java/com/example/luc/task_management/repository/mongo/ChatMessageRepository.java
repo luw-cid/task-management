@@ -18,7 +18,7 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
     Optional<ChatMessage> findByIdAndTaskId(String id, Long taskId);
 
     // Đếm tin nhắn trong task
-    long countTaskIdAndIsDeletedFalse(Long taskId);
+    long countByTaskIdAndIsDeletedFalse(Long taskId);
 
     // xóa toàn bộ tin nhắn khi xóa task
     void deleteAllByTaskId(Long taskId);

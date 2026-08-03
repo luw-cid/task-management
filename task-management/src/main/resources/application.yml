@@ -13,9 +13,11 @@ spring:
   application:
     name: task-management
   datasource:
-    url: jdbc:mysql://localhost:3306/task_management?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:root}
-#    password: ${DB_PASSWORD:''}
+    url: jdbc:mysql://localhost:3306/task_management?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true
+#    username: ${DB_USERNAME:root}
+#    password: ${DB_PASSWORD:""}
+    username: root
+    password: ""
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: TaskManagerHikariPool
@@ -28,7 +30,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: true
     open-in-view: false
     properties:
@@ -40,6 +42,9 @@ spring:
           order_inserts: true
           order_updates: true
 
+  data:
+    mongodb:
+      uri: mongodb+srv://tienluc14052005_db_user:ZueCWkEYaXp5ZuW9@cluster0.vnngkcn.mongodb.net
   flyway:
     enabled: false
     locations: classpath:db/migration

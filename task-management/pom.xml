@@ -124,6 +124,12 @@
             <artifactId>spring-boot-http-client</artifactId>
             <version>4.0.1</version>
         </dependency>
+
+        <!-- MongoDB -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
     </dependencies>
 
 	<build>
