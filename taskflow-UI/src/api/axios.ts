@@ -25,15 +25,29 @@ export const api = axios.create({
 });
 
 export function getAccessToken() {
-  return accessTokenInMemory;
+  if (accessTokenInMemory) return accessTokenInMemory;
+  if (isBrowser) {
+    return localStorage.getItem(ACCESS_TOKEN_KEY);
+  }
+  return null;
 }
 
 export function setAccessToken(token: string | null) {
   accessTokenInMemory = token;
+  if (isBrowser) {
+    if (token) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+    }
+  }
 }
 
 export function clearAuthTokens() {
   accessTokenInMemory = null;
+  if (isBrowser) {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+  }
 }
 
 function notifyAuthExpired() {
