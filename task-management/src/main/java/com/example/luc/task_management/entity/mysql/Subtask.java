@@ -1,4 +1,4 @@
-package com.example.luc.task_management.entity;
+package com.example.luc.task_management.entity.mysql;
 
 import jakarta.persistence.*;
 import lombok.*;

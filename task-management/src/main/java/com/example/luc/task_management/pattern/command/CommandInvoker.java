@@ -1,11 +1,11 @@
 package com.example.luc.task_management.pattern.command;
 
 
-import com.example.luc.task_management.entity.ActivityLog;
-import com.example.luc.task_management.entity.Task;
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.ActivityLog;
+import com.example.luc.task_management.entity.mysql.Task;
+import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.enums.ActivityAction;
-import com.example.luc.task_management.repository.ActivityLogRepository;
+import com.example.luc.task_management.repository.jpa.ActivityLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

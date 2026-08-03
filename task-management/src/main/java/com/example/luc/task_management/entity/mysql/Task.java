@@ -1,4 +1,4 @@
-package com.example.luc.task_management.entity;
+package com.example.luc.task_management.entity.mysql;
 
 import com.example.luc.task_management.enums.TaskPriority;
 import com.example.luc.task_management.enums.TaskStatus;

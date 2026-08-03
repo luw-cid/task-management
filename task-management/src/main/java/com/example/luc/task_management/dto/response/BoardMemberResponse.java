@@ -1,6 +1,6 @@
 package com.example.luc.task_management.dto.response;
 
-import com.example.luc.task_management.entity.BoardMember;
+import com.example.luc.task_management.entity.mysql.BoardMember;
 import lombok.*;
 
 @Getter @Setter

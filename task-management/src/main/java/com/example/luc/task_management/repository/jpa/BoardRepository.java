@@ -1,7 +1,7 @@
-package com.example.luc.task_management.repository;
+package com.example.luc.task_management.repository.jpa;
 
-import com.example.luc.task_management.entity.Board;
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.Board;
+import com.example.luc.task_management.entity.mysql.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

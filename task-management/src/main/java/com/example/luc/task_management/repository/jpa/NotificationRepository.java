@@ -1,6 +1,6 @@
-package com.example.luc.task_management.repository;
+package com.example.luc.task_management.repository.jpa;
 
-import com.example.luc.task_management.entity.Notification;
+import com.example.luc.task_management.entity.mysql.Notification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

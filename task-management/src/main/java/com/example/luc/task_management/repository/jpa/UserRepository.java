@@ -1,6 +1,6 @@
-package com.example.luc.task_management.repository;
+package com.example.luc.task_management.repository.jpa;
 
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.User;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;

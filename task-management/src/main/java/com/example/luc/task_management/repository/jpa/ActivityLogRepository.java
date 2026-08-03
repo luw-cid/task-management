@@ -1,10 +1,8 @@
-package com.example.luc.task_management.repository;
+package com.example.luc.task_management.repository.jpa;
 
-import com.example.luc.task_management.entity.ActivityLog;
-import com.example.luc.task_management.entity.Board;
+import com.example.luc.task_management.entity.mysql.ActivityLog;
 import com.example.luc.task_management.enums.ActivityAction;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

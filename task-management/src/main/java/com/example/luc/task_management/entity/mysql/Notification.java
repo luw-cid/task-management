@@ -1,6 +1,5 @@
-package com.example.luc.task_management.entity;
+package com.example.luc.task_management.entity.mysql;
 
-import com.example.luc.task_management.enums.ActivityAction;
 import com.example.luc.task_management.enums.NotificationType;
 import com.example.luc.task_management.enums.ReferenceType;
 import jakarta.persistence.*;

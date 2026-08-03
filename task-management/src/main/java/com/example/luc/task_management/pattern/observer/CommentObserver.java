@@ -1,11 +1,10 @@
 package com.example.luc.task_management.pattern.observer;
 
-import com.example.luc.task_management.entity.Comment;
-import com.example.luc.task_management.entity.Notification;
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.Comment;
+import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.enums.NotificationType;
 import com.example.luc.task_management.enums.ReferenceType;
-import com.example.luc.task_management.repository.NotificationRepository;
+import com.example.luc.task_management.repository.jpa.NotificationRepository;
 import com.example.luc.task_management.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 @Slf4j
 @Component

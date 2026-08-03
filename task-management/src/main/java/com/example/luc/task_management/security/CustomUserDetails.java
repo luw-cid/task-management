@@ -1,6 +1,6 @@
 package com.example.luc.task_management.security;
 
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.User;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;

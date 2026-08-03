@@ -1,6 +1,6 @@
 package com.example.luc.task_management.dto.response;
 
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.User;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 

@@ -1,6 +1,6 @@
 package com.example.luc.task_management.pattern.observer;
 
-import com.example.luc.task_management.entity.Task;
+import com.example.luc.task_management.entity.mysql.Task;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

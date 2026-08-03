@@ -1,6 +1,6 @@
 package com.example.luc.task_management.dto.response;
 
-import com.example.luc.task_management.entity.Label;
+import com.example.luc.task_management.entity.mysql.Label;
 import lombok.*;
 
 @Getter

@@ -1,6 +1,5 @@
-package com.example.luc.task_management.entity;
+package com.example.luc.task_management.entity.mysql;
 
-import com.example.luc.task_management.enums.ActivityAction;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -10,8 +9,8 @@ import java.util.List;
 @Entity
 @Table(name = "boards")
 @Getter @Setter
-@NoArgsConstructor
-@AllArgsConstructor
+//@NoArgsConstructor
+//@AllArgsConstructor
 @Builder
 public class Board extends BaseEntity{
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,4 +47,5 @@ public class Board extends BaseEntity{
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<ActivityLog> activityLogs = new ArrayList<>();
+
 }

@@ -1,6 +1,6 @@
 package com.example.luc.task_management.security;
 
-import com.example.luc.task_management.repository.UserRepository;
+import com.example.luc.task_management.repository.jpa.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.userdetails.UserDetails;

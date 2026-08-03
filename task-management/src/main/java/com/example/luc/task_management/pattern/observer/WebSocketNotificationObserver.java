@@ -2,7 +2,7 @@ package com.example.luc.task_management.pattern.observer;
 
 import com.example.luc.task_management.dto.websocket.WebSocketMessage;
 import com.example.luc.task_management.dto.websocket.WebSocketMessageType;
-import com.example.luc.task_management.entity.Task;
+import com.example.luc.task_management.entity.mysql.Task;
 import com.example.luc.task_management.enums.NotificationType;
 import com.example.luc.task_management.enums.ReferenceType;
 import com.example.luc.task_management.service.NotificationService;

@@ -1,10 +1,9 @@
 package com.example.luc.task_management.pattern.observer;
 
-import com.example.luc.task_management.entity.Notification;
-import com.example.luc.task_management.entity.Task;
+import com.example.luc.task_management.entity.mysql.Task;
 import com.example.luc.task_management.enums.NotificationType;
 import com.example.luc.task_management.enums.ReferenceType;
-import com.example.luc.task_management.repository.NotificationRepository;
+import com.example.luc.task_management.repository.jpa.NotificationRepository;
 import com.example.luc.task_management.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,8 +1,8 @@
-package com.example.luc.task_management.repository;
+package com.example.luc.task_management.repository.jpa;
 
-import com.example.luc.task_management.entity.Board;
-import com.example.luc.task_management.entity.BoardMember;
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.Board;
+import com.example.luc.task_management.entity.mysql.BoardMember;
+import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.enums.BoardRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

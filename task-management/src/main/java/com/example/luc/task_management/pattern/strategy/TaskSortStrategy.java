@@ -1,6 +1,6 @@
 package com.example.luc.task_management.pattern.strategy;
 
-import com.example.luc.task_management.entity.Task;
+import com.example.luc.task_management.entity.mysql.Task;
 
 import java.util.List;
 

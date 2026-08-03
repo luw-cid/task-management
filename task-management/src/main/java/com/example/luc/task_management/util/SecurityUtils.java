@@ -1,6 +1,6 @@
 package com.example.luc.task_management.util;
 
-import com.example.luc.task_management.entity.User;
+import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.exception.AppException;
 import com.example.luc.task_management.exception.ErrorCode;
 import com.example.luc.task_management.security.CustomUserDetails;

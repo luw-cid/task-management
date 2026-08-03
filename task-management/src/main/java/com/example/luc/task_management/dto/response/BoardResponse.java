@@ -1,6 +1,6 @@
 package com.example.luc.task_management.dto.response;
 
-import com.example.luc.task_management.entity.Board;
+import com.example.luc.task_management.entity.mysql.Board;
 import lombok.*;
 
 import java.time.LocalDateTime;
