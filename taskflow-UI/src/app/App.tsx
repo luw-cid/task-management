@@ -22,7 +22,7 @@ import { ManageLabelsModal } from "./components/ManageLabelsModal";
 import { BoardSettingsModal } from "./components/BoardSettingsModal";
 import { NoNotificationsState } from "./components/EmptyStates";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { api, authApi, boardsApi, clearAuthTokens, columnsApi, labelsApi, notificationsApi, setAccessToken, tasksApi, usersApi } from "../api";
+import { api, authApi, boardsApi, clearAuthTokens, columnsApi, getAccessToken, labelsApi, notificationsApi, setAccessToken, tasksApi, usersApi } from "../api";
 import type { Column, CreateBoardRequest, LoginRequest, RegisterRequest, Task, TaskStatus, UserProfile } from "../types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1335,7 +1335,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
 export default function App() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
 
   useEffect(() => {
     function handleAuthExpired() {
