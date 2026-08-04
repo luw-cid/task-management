@@ -1,33 +1,68 @@
-# 📋 Task Management System
+# 📋 Task Management System (TaskFlow)
 
-Hệ thống quản lý công việc theo dạng Kanban Board, xây dựng bằng Java Spring Boot.
-Cho phép các nhóm tổ chức, theo dõi và quản lý công việc hiệu quả.
+Hệ thống quản lý công việc theo dạng Kanban Board với kiến trúc **Full-stack (Spring Boot + React Vite)**.
+Hỗ trợ quản lý công việc, thảo luận nhóm Real-time qua WebSocket và lưu trữ dữ liệu kết hợp **Dual-Database (MySQL + MongoDB)**.
 
 ---
 
 ## 🛠️ Tech Stack
 
+### Backend
 | Thành phần | Công nghệ |
 |---|---|
 | Language | Java 17 |
 | Framework | Spring Boot 3.x |
-| Security | Spring Security + JWT |
-| Database | MySQL |
-| ORM | Spring Data JPA / Hibernate |
+| Security | Spring Security + JWT (Access Token & Refresh Token) |
+| Relational DB | MySQL / Supabase PostgreSQL (Chuẩn bị statement transaction threshold = 0) |
+| NoSQL DB | MongoDB (Lưu trữ Chat & Comments real-time) |
+| ORM | Spring Data JPA (Relational) + Spring Data MongoDB (NoSQL) |
+| Real-time | WebSocket + STOMP / SockJS |
 | Build Tool | Maven |
-| Real-time | WebSocket + STOMP |
+
+### Frontend (`taskflow-UI`)
+| Thành phần | Công nghệ |
+|---|---|
+| Core | React 18 + TypeScript + Vite |
+| Styling | TailwindCSS + Lucide Icons + Glassmorphism Design |
+| Animation | Motion (Framer Motion) |
+| State & Query | TanStack Query (React Query v5) + Axios |
+| WebSocket | `@stomp/stompjs` + `sockjs-client` |
 
 ---
 
 ## ✨ Tính năng chính
 
-- 🔐 **Xác thực** – Đăng ký, đăng nhập, JWT Access Token + Refresh Token
-- 📋 **Quản lý Board** – Tạo board, mời thành viên, phân quyền
-- 📊 **Quản lý Column** – Tạo cột tùy chỉnh, thay đổi thứ tự
-- ✅ **Quản lý Task** – Tạo task, gán người, chuyển cột, lọc & sắp xếp
-- 💬 **Bình luận** – Comment vào task, sửa/xóa bình luận
-- 🔔 **Thông báo** – Real-time notification khi task thay đổi
-- 📜 **Lịch sử** – Ghi lại toàn bộ thay đổi của task
+- 🔐 **Xác thực & Bảo mật** – Đăng ký, đăng nhập, JWT Access Token & Refresh Token lưu trữ an toàn.
+- 📋 **Quản lý Board** – Tạo board, mời thành viên, thống kê tiến độ, phân quyền thành viên.
+- 📊 **Quản lý Column** – Tạo cột tùy chỉnh, đổi màu sắc, thay đổi vị trí kéo thả.
+- ✅ **Quản lý Task** – Tạo task, gán người thực hiện, chuyển cột, phân loại độ ưu tiên, lọc & tìm kiếm.
+- 💬 **Bình luận (Task Comments - MongoDB)** – Đăng bình luận trong task, sửa/xóa bình luận, thanh cuộn mượt mà và tự động cuộn xuống tin nhắn mới nhất.
+- 🗣️ **Chat Room Real-time (Board Chat - MongoDB + WebSocket)** – Cửa sổ Chat nhóm nổi tại giao diện Board, nhắn tin trực tiếp với toàn đội, căn lề tin nhắn góc phải thông minh.
+- 🔔 **Thông báo & Lịch sử** – Real-time notification qua WebSocket và ghi Activity Logs toàn bộ thay đổi.
+
+---
+
+## 🏗️ Kiến trúc Dual-Database (MySQL + MongoDB)
+
+Hệ thống kết hợp sức mạnh của 2 cơ sở dữ liệu:
+
+```
+                  ┌─────────────────────────────────────────┐
+                  │           TaskFlow Application          │
+                  └────────────────────┬────────────────────┘
+                                       │
+                ┌──────────────────────┴──────────────────────┐
+                ▼                                             ▼
+  ┌───────────────────────────┐                 ┌───────────────────────────┐
+  │     MySQL / PostgreSQL    │                 │          MongoDB          │
+  │    (Dữ liệu Quan hệ)      │                 │    (Dữ liệu Truyền thông) │
+  ├───────────────────────────┤                 ├───────────────────────────┤
+  │ - Users & Auth Tokens     │                 │ - Board Chat Messages     │
+  │ - Boards & Members        │                 │ - Task Comments           │
+  │ - Columns & Tasks         │                 │ - Message Search & Logs   │
+  │ - Subtasks & Activity Logs│                 └───────────────────────────┘
+  └───────────────────────────┘
+```
 
 ---
 
@@ -35,9 +70,7 @@ Cho phép các nhóm tổ chức, theo dõi và quản lý công việc hiệu q
 
 ### 1. Factory Pattern
 Tạo các loại Task khác nhau với thuộc tính mặc định riêng.
-
 ```java
-// Mỗi loại task có priority và màu sắc mặc định
 TaskProduct product = TaskFactory.createTask(TaskType.BUG);
 // BUG         → priority CRITICAL, màu đỏ
 // FEATURE     → priority MEDIUM,   màu xanh lam
@@ -46,289 +79,132 @@ TaskProduct product = TaskFactory.createTask(TaskType.BUG);
 ```
 
 ### 2. Strategy Pattern
-Sắp xếp Task linh hoạt theo nhiều tiêu chí.
-
+Sắp xếp Task linh hoạt theo nhiều tiêu chí runtime.
 ```java
-// Chọn cách sắp xếp lúc runtime
 TaskSortContext context = TaskSortContext.of("priority");
 List<Task> sorted = context.sort(tasks);
-// "deadline"  → SortByDeadline
-// "priority"  → SortByPriority
-// "assignee"  → SortByAssignee
-// default     → SortByCreatedAt
 ```
 
 ### 3. Command Pattern
-Đóng gói thao tác thành object, tự động ghi lịch sử.
-
+Đóng gói thao tác thành object, tự động ghi lịch sử Activity Log.
 ```java
-// Mỗi thay đổi được đóng gói thành Command
 AssignTaskCommand command = new AssignTaskCommand(task, newAssignee);
 commandInvoker.execute(command, task, user, ActivityAction.TASK_ASSIGNED);
-// execute() → thực hiện thay đổi + ghi ActivityLog tự động
 ```
 
 ### 4. Observer Pattern
-Tự động thông báo khi task thay đổi.
-
+Tự động gửi thông báo cho assignee & reporter khi task/comment có thay đổi.
 ```java
-// Publish 1 lần, tất cả Observer tự nhận
-taskEventPublisher.publish(task, "TASK_ASSIGNED", message);
-// → InAppNotificationObserver → lưu Notification vào DB
-// → WebSocketObserver (mở rộng) → push real-time
+commentObserver.onCommentAdded(comment);
 ```
 
-### 5. Singleton Pattern
-Tất cả Spring Bean (@Service, @Component) đều là Singleton,
-đảm bảo chỉ có 1 instance trong toàn bộ ứng dụng.
-
-### 6. Builder Pattern
-Sử dụng Lombok @Builder để tạo object rõ ràng, tránh nhầm lẫn.
-
-```java
-Task task = Task.builder()
-        .title(request.getTitle())
-        .type(request.getType())
-        .priority(taskProduct.getDefaultPriority())
-        .build();
-```
+### 5. Singleton & Builder Pattern
+- Sử dụng Spring Beans Singleton đảm bảo tối ưu tài nguyên.
+- Sử dụng Lombok `@Builder` cho các DTO và Entities.
 
 ---
 
-## 📁 Cấu trúc thư mục
+## 📁 Cấu trúc thư mục Backend
 
 ```
 src/main/java/com/example/luc/task_management/
 │
-├── config/             # Cấu hình hệ thống
-│   ├── DatabaseConfig.java
-│   └── SecurityConfig.java
-│
-├── controller/         # Nhận HTTP Request
+├── config/             # Cấu hình hệ thống (Database, Security, WebSocket)
+├── controller/         # REST Controllers
 │   ├── AuthController.java
 │   ├── BoardController.java
+│   ├── BoardChatController.java   # REST API Chat Board
 │   ├── ColumnController.java
 │   ├── TaskController.java
-│   └── CommentController.java
+│   └── CommentController.java     # REST API Comments
 │
-├── service/            # Business Logic
+├── service/            # Business Logic Layer
 │   ├── AuthService.java
 │   ├── BoardService.java
-│   ├── ColumnService.java
-│   ├── TaskService.java
-│   └── CommentService.java
+│   ├── ChatService.java           # Xử lý Chat MongoDB + STOMP
+│   ├── CommentService.java        # Xử lý Comments MongoDB
+│   └── TaskService.java
 │
-├── repository/         # Tầng truy cập Database
-│   ├── UserRepository.java
-│   ├── BoardRepository.java
-│   ├── TaskRepository.java
-│   └── ...
+├── repository/         # Data Access Layer
+│   ├── jpa/            # MySQL / JPA Repositories (User, Board, Task...)
+│   └── mongo/          # MongoDB Repositories (ChatMessage, Comment)
 │
-├── entity/             # JPA Entity
-│   ├── User.java
-│   ├── Board.java
-│   ├── Task.java
-│   └── ...
+├── entity/             # Data Entities
+│   ├── mysql/          # Relational JPA Entities
+│   └── mongo/          # NoSQL MongoDB Documents (ChatMessage, Comment)
 │
-├── dto/                # Data Transfer Object
-│   ├── request/
-│   └── response/
-│
-├── pattern/            # Design Pattern
+├── pattern/            # GoF Design Patterns
 │   ├── factory/        # Factory Pattern
 │   ├── strategy/       # Strategy Pattern
 │   ├── observer/       # Observer Pattern
 │   └── command/        # Command Pattern
 │
-├── security/           # JWT Security
-│   ├── JwtTokenProvider.java
-│   └── JwtAuthenticationFilter.java
-│
-├── exception/          # Xử lý lỗi
-│   ├── GlobalExceptionHandler.java
-│   └── ErrorCode.java
-│
-└── util/
-    └── SecurityUtils.java
+├── websocket/          # WebSocket Broadcaster & STOMP Handler
+└── security/           # JWT Security Filters
 ```
 
 ---
 
-## 🗄️ Database Schema
-
-```
-users
-  └──< boards (owner_id)
-          └──< board_members >── users
-          └──< columns
-          │       └──< tasks >── users (assignee, reporter)
-          │               └──< subtasks
-          │               └──< comments >── users
-          │               └──< task_labels
-          │               └──< activity_logs
-          └──< labels ──< task_labels
-
-users └──< notifications
-users └──< refresh_tokens
-```
-
----
-
-## 🚀 Hướng dẫn cài đặt
-
-### Yêu cầu
-- Java 17+
-- MySQL 8.0+
-- Maven 3.8+
-
-### Bước 1 – Clone project
-```bash
-git clone https://github.com/yourname/task-management.git
-cd task-management
-```
-
-### Bước 2 – Tạo Database
-```sql
-CREATE DATABASE task_management_db
-CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
-```
-
-### Bước 3 – Cấu hình `application.yml`
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/task_management_db
-    username: your_username
-    password: your_password
-
-app:
-  jwt:
-    secret: your-secret-key-at-least-256-bits
-    access-token-expiration: 86400000
-    refresh-token-expiration: 604800000
-```
-
-### Bước 4 – Chạy project
-```bash
-mvn clean install -DskipTests
-mvn spring-boot:run
-```
-
-Ứng dụng chạy tại: `http://localhost:8080`
-
----
-
-## 📡 API Endpoints
+## 📡 API Endpoints chính
 
 ### Authentication
 | Method | Endpoint | Mô tả |
 |---|---|---|
-| POST | `/api/auth/register` | Đăng ký |
-| POST | `/api/auth/login` | Đăng nhập |
-| POST | `/api/auth/refresh-token` | Làm mới token |
+| POST | `/api/auth/register` | Đăng ký tài khoản |
+| POST | `/api/auth/login` | Đăng nhập nhận JWT |
+| POST | `/api/auth/refresh-token` | Làm mới Token |
 | POST | `/api/auth/logout` | Đăng xuất |
 
-### Board
+### Board Chat (MongoDB + WebSocket)
 | Method | Endpoint | Mô tả |
 |---|---|---|
-| POST | `/api/boards` | Tạo board |
-| GET | `/api/boards` | Danh sách board |
-| GET | `/api/boards/{id}` | Chi tiết board |
-| PUT | `/api/boards/{id}` | Cập nhật board |
-| DELETE | `/api/boards/{id}` | Xóa board |
-| POST | `/api/boards/{id}/members` | Mời thành viên |
-| DELETE | `/api/boards/{id}/members/{userId}` | Xóa thành viên |
+| POST | `/api/boards/{boardId}/chat/messages` | Gửi tin nhắn Chat vào Board |
+| GET | `/api/boards/{boardId}/chat/messages` | Lấy danh sách tin nhắn Chat |
+| GET | `/api/boards/{boardId}/chat/messages/search` | Tìm kiếm tin nhắn Chat theo từ khóa |
+| DELETE | `/api/boards/{boardId}/chat/messages/{messageId}` | Xóa tin nhắn Chat |
+| GET | `/api/boards/{boardId}/chat/count` | Đếm tổng số tin nhắn |
 
-### Column
+### Task Comments (MongoDB)
 | Method | Endpoint | Mô tả |
 |---|---|---|
-| POST | `/api/boards/{boardId}/columns` | Tạo cột |
-| GET | `/api/boards/{boardId}/columns` | Danh sách cột |
-| PUT | `/api/boards/{boardId}/columns/{id}` | Cập nhật cột |
-| DELETE | `/api/boards/{boardId}/columns/{id}` | Xóa cột |
-
-### Task
-| Method | Endpoint | Mô tả |
-|---|---|---|
-| POST | `/api/boards/{boardId}/tasks` | Tạo task |
-| GET | `/api/boards/{boardId}/tasks` | Danh sách task |
-| GET | `/api/boards/{boardId}/tasks/{id}` | Chi tiết task |
-| PUT | `/api/boards/{boardId}/tasks/{id}` | Cập nhật task |
-| PUT | `/api/boards/{boardId}/tasks/{id}/move` | Chuyển cột |
-| PUT | `/api/boards/{boardId}/tasks/{id}/assign` | Gán người |
-| DELETE | `/api/boards/{boardId}/tasks/{id}` | Xóa task |
-
-### Comment
-| Method | Endpoint | Mô tả |
-|---|---|---|
-| POST | `/api/boards/{boardId}/tasks/{taskId}/comments` | Thêm comment |
-| GET | `/api/boards/{boardId}/tasks/{taskId}/comments` | Danh sách comment |
-| PUT | `/api/boards/{boardId}/tasks/{taskId}/comments/{id}` | Sửa comment |
-| DELETE | `/api/boards/{boardId}/tasks/{taskId}/comments/{id}` | Xóa comment |
+| POST | `/api/boards/{boardId}/tasks/{taskId}/comments` | Thêm bình luận vào Task |
+| GET | `/api/boards/{boardId}/tasks/{taskId}/comments` | Lấy danh sách bình luận |
+| PUT | `/api/boards/{boardId}/tasks/{taskId}/comments/{commentId}` | Chỉnh sửa bình luận |
+| DELETE | `/api/boards/{boardId}/tasks/{taskId}/comments/{commentId}` | Xóa bình luận |
 
 ---
 
-## 🔐 Xác thực
+## 🔌 Kênh WebSocket Real-time (STOMP)
 
-Tất cả API (trừ `/api/auth/**`) đều yêu cầu JWT Token trong header:
-
-```
-Authorization: Bearer <accessToken>
-```
-
----
-
-## 📊 Phân quyền
-
-| Role | Quyền |
-|---|---|
-| `SYSTEM_ADMIN` | Toàn quyền hệ thống |
-| `BOARD_ADMIN` | Quản lý board, thành viên, cột |
-| `MEMBER` | Tạo và xử lý task, comment |
-| `VIEWER` | Chỉ xem |
+- Endpoint kết nối: `/ws` (Hỗ trợ SockJS fallback)
+- Header xác thực: `Authorization: Bearer <accessToken>`
+- Subscriptions:
+  - `/topic/board/{boardId}`: Nhận cập nhật Task và tin nhắn Chat của Board real-time.
+  - `/topic/task/{taskId}/comments`: Nhận bình luận mới của Task tức thì.
 
 ---
 
-## 🔄 Luồng hoạt động chính
+## 🚀 Hướng dẫn khởi chạy Local
 
+### 1. Backend (Spring Boot)
+```bash
+cd task-management
+mvn clean install -DskipTests
+mvn spring-boot:run
 ```
-Đăng nhập → Nhận JWT Token
-     │
-     ▼
-Tạo Board → Tự động tạo 3 cột (To Do, In Progress, Done)
-     │
-     ▼
-Mời thành viên → Thông báo real-time
-     │
-     ▼
-Tạo Task (Factory Pattern chọn priority mặc định)
-     │
-     ▼
-Gán người thực hiện
-     │   └── Command Pattern ghi lịch sử
-     │   └── Observer Pattern gửi thông báo
-     ▼
-Chuyển Task sang cột khác (kéo thả)
-     │   └── Command Pattern ghi lịch sử
-     │   └── Observer Pattern gửi thông báo
-     ▼
-Comment vào Task
-     │   └── Observer Pattern thông báo cho assignee + reporter
-     ▼
-Xem lịch sử thay đổi
+*(Chạy tại: `http://localhost:8080`)*
+
+### 2. Frontend (React Vite)
+```bash
+cd taskflow-UI
+npm install
+npm run dev
 ```
+*(Chạy tại: `http://localhost:5173`)*
 
 ---
 
 ## 👨‍💻 Tác giả
 
-**Phạm Tiến Lực**
-- GitHub: [github.com/yourname](https://github.com/yourname)
-- Email: your.email@example.com
-
----
-
-## 📄 License
-
-MIT License
+**Phạm Tiến Lực** (Luwcid)
+- Repository: [task-management](https://github.com/luw-cid/task-management)
