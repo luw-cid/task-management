@@ -547,22 +547,8 @@ export function TaskDetailPanel({
     });
   }, [activity, activityFilter]);
 
-  const isLoading =
-    taskQuery.isLoading ||
-    boardColumnsQuery.isLoading ||
-    boardMembersQuery.isLoading ||
-    subtasksQuery.isLoading ||
-    commentsQuery.isLoading ||
-    activityQuery.isLoading ||
-    boardLabelsQuery.isLoading;
-  const hasError =
-    taskQuery.isError ||
-    boardColumnsQuery.isError ||
-    boardMembersQuery.isError ||
-    subtasksQuery.isError ||
-    commentsQuery.isError ||
-    activityQuery.isError ||
-    boardLabelsQuery.isError;
+  const isLoading = taskQuery.isLoading || boardColumnsQuery.isLoading;
+  const hasError = taskQuery.isError;
 
   return (
     <AnimatePresence>
