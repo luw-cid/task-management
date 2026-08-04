@@ -56,11 +56,11 @@ Hệ thống kết hợp sức mạnh của 2 cơ sở dữ liệu:
                 ┌──────────────────────┴──────────────────────┐
                 ▼                                             ▼
   ┌───────────────────────────┐                 ┌───────────────────────────┐
-  │     MySQL / PostgreSQL    │                 │          MongoDB          │
+  │     MySQL / PostgreSQL    │                 │   MongoDB (Bucket Pattern)│
   │    (Dữ liệu Quan hệ)      │                 │    (Dữ liệu Truyền thông) │
   ├───────────────────────────┤                 ├───────────────────────────┤
-  │ - Users & Auth Tokens     │                 │ - Board Chat Messages     │
-  │ - Boards & Members        │                 │ - Task Comments           │
+  │ - Users & Auth Tokens     │                 │ - chat_buckets (Discord)  │
+  │ - Boards & Members        │                 │ - comment_buckets (Task)  │
   │ - Columns & Tasks         │                 │ - Message Search & Logs   │
   │ - Subtasks & Activity Logs│                 └───────────────────────────┘
   └───────────────────────────┘
@@ -103,6 +103,12 @@ commentObserver.onCommentAdded(comment);
 ### 5. Singleton & Builder Pattern
 - Sử dụng Spring Beans Singleton đảm bảo tối ưu tài nguyên.
 - Sử dụng Lombok `@Builder` cho các DTO và Entities.
+
+### 6. Bucket Pattern (Discord / Slack Messaging Architecture)
+Gộp nhóm tin nhắn Chat & Comments theo từng **Bucket (Thùng 50 msgs/bucket)** trong MongoDB thay vì lưu lẻ từng Document:
+- **Tối ưu RAM & Disk IOPS**: Giảm 95-98% số lượng Documents trên MongoDB Atlas Free Tier.
+- **Tốc độ đọc siêu tốc**: Truy vấn 50 tin nhắn chỉ tốn **đúng 1 lần đọc đĩa (1 Disk Read)** duy nhất.
+- **Phân trang lùi**: Phân trang mượt mà lùi dần theo chỉ số `bucketIndex`.
 
 ---
 

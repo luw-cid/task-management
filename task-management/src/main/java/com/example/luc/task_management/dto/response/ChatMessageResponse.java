@@ -1,6 +1,7 @@
 package com.example.luc.task_management.dto.response;
 
 import com.example.luc.task_management.entity.mongo.ChatMessage;
+import com.example.luc.task_management.entity.mongo.item.ChatMessageItem;
 import com.example.luc.task_management.enums.MessageType;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -36,4 +37,20 @@ public class ChatMessageResponse {
                 .createdAt(message.getCreatedAt())
                 .build();
     }
+
+    public static ChatMessageResponse fromItem(ChatMessageItem item, Long currentUserId) {
+        boolean isDeleted = Boolean.TRUE.equals(item.getIsDeleted());
+        return ChatMessageResponse.builder()
+                .id(item.getId())
+                .senderId(item.getSenderId())
+                .senderName(item.getSenderName())
+                .senderAvatar(item.getSenderAvatar())
+                .content(isDeleted ? "Message is deleted" : item.getContent())
+                .type(item.getType() != null ? item.getType().name() : MessageType.TEXT.name())
+                .isDeleted(isDeleted)
+                .isOwn(java.util.Objects.equals(item.getSenderId(), currentUserId))
+                .createdAt(item.getCreatedAt())
+                .build();
+    }
+
 }

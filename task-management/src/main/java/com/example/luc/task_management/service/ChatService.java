@@ -5,11 +5,14 @@ import com.example.luc.task_management.dto.response.ChatMessageResponse;
 import com.example.luc.task_management.dto.websocket.WebSocketMessage;
 import com.example.luc.task_management.dto.websocket.WebSocketMessageType;
 import com.example.luc.task_management.entity.mongo.ChatMessage;
+import com.example.luc.task_management.entity.mongo.item.ChatBucket;
+import com.example.luc.task_management.entity.mongo.item.ChatMessageItem;
 import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.exception.AppException;
 import com.example.luc.task_management.exception.ErrorCode;
 import com.example.luc.task_management.repository.jpa.BoardRepository;
 import com.example.luc.task_management.repository.jpa.TaskRepository;
+import com.example.luc.task_management.repository.mongo.ChatBucketRepository;
 import com.example.luc.task_management.repository.mongo.ChatMessageRepository;
 import com.example.luc.task_management.util.SecurityUtils;
 import com.example.luc.task_management.websocket.WebSocketBroadcaster;
@@ -21,8 +24,7 @@ import com.example.luc.task_management.enums.MessageType;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,6 +35,7 @@ public class ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final TaskRepository taskRepository;
     private final BoardRepository boardRepository;
+    private final ChatBucketRepository chatBucketRepository;
     private final WebSocketBroadcaster webSocketBroadcaster;
     private final BoardSecurityService boardSecurityService;
 
@@ -193,8 +196,27 @@ public class ChatService {
         User currentUser = SecurityUtils.getCurrentUser();
         boardSecurityService.checkBoardMember(boardId, currentUser);
 
-        ChatMessage message = ChatMessage.builder()
-                .boardId(boardId)
+        // 1. Tìm Bucket mới nhất của Board
+        ChatBucket currentBucket = chatBucketRepository.findFirstByBoardIdAndTaskIdIsNullOrderByBucketIndexDesc(boardId)
+                .orElse(null);
+
+        // 2. Nếu chưa có Bucket hoặc Bucket cũ đã chứa đủ 50 tin nhắn -> Tạo Bucket mới (Index + 1)
+        if (currentBucket == null || currentBucket.getCount() >= 50) {
+            int nextIndex = currentBucket == null ? 0 : currentBucket.getBucketIndex() + 1;
+
+            currentBucket = ChatBucket.builder()
+                    .id("board_" + boardId + "_bucket_" + nextIndex)
+                    .boardId(boardId)
+                    .bucketIndex(nextIndex)
+                    .count(0)
+                    .startDate(LocalDateTime.now())
+                    .messages(new ArrayList<>())
+                    .build();
+        }
+
+        // 3. Tạo tin nhắn mới
+        ChatMessageItem item = ChatMessageItem.builder()
+                .id(UUID.randomUUID().toString())
                 .senderId(currentUser.getId())
                 .senderName(currentUser.getFullName())
                 .senderAvatar(currentUser.getAvatarUrl())
@@ -204,9 +226,16 @@ public class ChatService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        chatMessageRepository.save(message);
+        // 4. Thêm tin nhắn vào mảng và cập nhật thông số Bucket
+        currentBucket.getMessages().add(item);
+        currentBucket.setCount(currentBucket.getMessages().size());
+        currentBucket.setEndDate(item.getCreatedAt());
 
-        ChatMessageResponse response = ChatMessageResponse.fromDocument(message, currentUser.getId());
+        // 5. Lưu lại Bucket vào MongoDB (Chỉ tốn 1 lượt ghi!)
+        chatBucketRepository.save(currentBucket);
+
+        // 6. Map sang DTO Response gửi qua WebSocket như bình thường
+        ChatMessageResponse response = ChatMessageResponse.fromItem(item, currentUser.getId());
 
         WebSocketMessage<ChatMessageResponse> wsMessage = WebSocketMessage.of(
                 WebSocketMessageType.CHAT_MESSAGE,
@@ -216,7 +245,7 @@ public class ChatService {
         );
         webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
 
-        log.info("Board chat message saved: board={}", boardId);
+        log.info("Board chat message saved to Bucket: board={}", boardId);
         return response;
     }
 
@@ -224,16 +253,29 @@ public class ChatService {
         User currentUser = SecurityUtils.getCurrentUser();
         boardSecurityService.checkBoardMember(boardId, currentUser);
 
-        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        // 1. Lấy bucket mới nhất làm mốc
+        Optional<ChatBucket> latestBucketOpt = chatBucketRepository.findFirstByBoardIdAndTaskIdIsNullOrderByBucketIndexDesc(boardId);
 
-        List<ChatMessageResponse> messages = chatMessageRepository
-                .findAllByBoardIdAndIsDeletedFalse(boardId, pageable)
-                .stream()
-                .map(m -> ChatMessageResponse.fromDocument(m, currentUser.getId()))
+        if (latestBucketOpt.isEmpty()) return Collections.emptyList();
+
+        int maxIndex = latestBucketOpt.get().getBucketIndex();
+        int targetIndex = maxIndex - page;
+
+        if (targetIndex < 0) {
+            return Collections.emptyList();
+        }
+
+        // 2. Đọc ĐÚNG 1 Bucket theo index (Chỉ tốn 1 lượt đọc đĩa!)
+        ChatBucket bucket = chatBucketRepository.findByBoardIdAndTaskIdIsNullAndBucketIndex(boardId, targetIndex)
+                .orElse(null);
+
+        if (bucket == null || bucket.getMessages() == null) {
+            return Collections.emptyList();
+        }
+
+        return bucket.getMessages().stream()
+                .map(item -> ChatMessageResponse.fromItem(item, currentUser.getId()))
                 .collect(Collectors.toList());
-
-        Collections.reverse(messages);
-        return messages;
     }
 
     public List<ChatMessageResponse> searchBoardMessages(Long boardId, String keyword, int page, int size) {
@@ -252,16 +294,21 @@ public class ChatService {
         User currentUser = SecurityUtils.getCurrentUser();
         boardSecurityService.checkBoardMember(boardId, currentUser);
 
-        ChatMessage message = chatMessageRepository.findByIdAndBoardId(messageId, boardId)
+        ChatBucket bucket = chatBucketRepository.findFirstByBoardIdAndTaskIdIsNullOrderByBucketIndexDesc(boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.BAD_REQUEST));
 
-        if (!message.getSenderId().equals(currentUser.getId())) {
+        ChatMessageItem messageItem = bucket.getMessages().stream()
+                .filter(m -> m.getId().equals(messageId))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.BAD_REQUEST));
+
+        if (!messageItem.getSenderId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        message.setIsDeleted(true);
-        message.setContent("[Đã xóa]");
-        chatMessageRepository.save(message);
+        messageItem.setIsDeleted(true);
+        messageItem.setContent("[Đã xóa]");
+        chatBucketRepository.save(bucket);
 
         WebSocketMessage<String> wsMessage = WebSocketMessage.of(
                 WebSocketMessageType.CHAT_MESSAGE_DELETE,
@@ -301,6 +348,20 @@ public class ChatService {
         User currentUser = SecurityUtils.getCurrentUser();
         boardSecurityService.checkBoardMember(boardId, currentUser);
 
-        return chatMessageRepository.countByBoardIdAndIsDeletedFalse(boardId);
+        Optional<ChatBucket> latestBucketOpt = chatBucketRepository
+                .findFirstByBoardIdAndTaskIdIsNullOrderByBucketIndexDesc(boardId);
+
+        if (latestBucketOpt.isEmpty()) return 0L;
+
+        int maxIndex = latestBucketOpt.get().getBucketIndex();
+        long total = 0;
+        for (int i = 0; i <= maxIndex; i++) {
+            Optional<ChatBucket> b = chatBucketRepository.findByBoardIdAndTaskIdIsNullAndBucketIndex(boardId, i);
+            if (b.isPresent() && b.get().getMessages() != null) {
+                total += b.get().getMessages().stream().filter(m -> !Boolean.TRUE.equals(m.getIsDeleted())).count();
+            }
+        }
+        return total;
     }
+
 }

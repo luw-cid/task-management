@@ -34,4 +34,18 @@ public class CommentResponse {
                 .updatedAt(comment.getUpdatedAt())
                 .build();
     }
+
+    public static CommentResponse fromItem(com.example.luc.task_management.entity.mongo.item.CommentItem item, Long taskId) {
+        return CommentResponse.builder()
+                .id(item.getId())
+                .taskId(taskId)
+                .userId(item.getUserId())
+                .userFullName(item.getUserFullName() != null ? item.getUserFullName() : "User")
+                .userAvatar(item.getUserAvatar())
+                .content(item.getContent() != null ? item.getContent() : "")
+                .isEdited(Boolean.TRUE.equals(item.getIsEdited()))
+                .createdAt(item.getCreatedAt() != null ? item.getCreatedAt() : LocalDateTime.now())
+                .updatedAt(item.getUpdatedAt())
+                .build();
+    }
 }

@@ -6,6 +6,8 @@ import com.example.luc.task_management.dto.response.CommentResponse;
 import com.example.luc.task_management.dto.websocket.WebSocketMessage;
 import com.example.luc.task_management.dto.websocket.WebSocketMessageType;
 import com.example.luc.task_management.entity.mongo.Comment;
+import com.example.luc.task_management.entity.mongo.item.CommentBucket;
+import com.example.luc.task_management.entity.mongo.item.CommentItem;
 import com.example.luc.task_management.entity.mysql.Task;
 import com.example.luc.task_management.entity.mysql.User;
 import com.example.luc.task_management.exception.AppException;
@@ -13,18 +15,19 @@ import com.example.luc.task_management.exception.ErrorCode;
 import com.example.luc.task_management.pattern.observer.CommentObserver;
 import com.example.luc.task_management.repository.jpa.BoardRepository;
 import com.example.luc.task_management.repository.jpa.TaskRepository;
-import com.example.luc.task_management.repository.mongo.CommentRepository;
+import com.example.luc.task_management.repository.mongo.CommentBucketRepository;
 import com.example.luc.task_management.util.SecurityUtils;
 import com.example.luc.task_management.websocket.WebSocketBroadcaster;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,7 +36,7 @@ import java.util.stream.Collectors;
 public class CommentService {
 
     private final WebSocketBroadcaster webSocketBroadcaster;
-    private final CommentRepository mongoCommentRepository;
+    private final CommentBucketRepository commentBucketRepository;
     private final TaskRepository taskRepository;
     private final BoardRepository boardRepository;
     private final CommentObserver commentObserver;
@@ -46,10 +49,26 @@ public class CommentService {
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
 
+        CommentBucket currentBucket = commentBucketRepository
+                .findFirstByTaskIdOrderByBucketIndexDesc(taskId)
+                .orElse(null);
+
+        if (currentBucket == null || currentBucket.getCount() >= 50) {
+            int nextIndex = (currentBucket == null) ? 0 : currentBucket.getBucketIndex() + 1;
+            currentBucket = CommentBucket.builder()
+                    .id("task_" + taskId + "_bucket_" + nextIndex)
+                    .taskId(taskId)
+                    .boardId(boardId)
+                    .bucketIndex(nextIndex)
+                    .count(0)
+                    .startDate(LocalDateTime.now())
+                    .comments(new ArrayList<>())
+                    .build();
+        }
+
         LocalDateTime now = LocalDateTime.now();
-        Comment comment = Comment.builder()
-                .taskId(taskId)
-                .boardId(boardId)
+        CommentItem item = CommentItem.builder()
+                .id(UUID.randomUUID().toString())
                 .userId(currentUser.getId())
                 .userFullName(currentUser.getFullName())
                 .userEmail(currentUser.getEmail())
@@ -60,14 +79,30 @@ public class CommentService {
                 .updatedAt(now)
                 .build();
 
-        mongoCommentRepository.save(comment);
+        currentBucket.getComments().add(item);
+        currentBucket.setCount(currentBucket.getComments().size());
+        currentBucket.setEndDate(now);
 
-        CommentResponse response = CommentResponse.fromDocument(comment);
+        commentBucketRepository.save(currentBucket);
 
-        // Thông báo cho assignee + reporter
-        commentObserver.onCommentAdded(comment);
+        CommentResponse response = CommentResponse.fromItem(item, taskId);
 
-        // ★ WEBSOCKET – Broadcast comment mới tới tất cả người đang xem task này real-time
+        // Observer compatibility
+        Comment tempComment = Comment.builder()
+                .id(item.getId())
+                .taskId(taskId)
+                .boardId(boardId)
+                .userId(currentUser.getId())
+                .userFullName(currentUser.getFullName())
+                .userEmail(currentUser.getEmail())
+                .userAvatar(currentUser.getAvatarUrl())
+                .content(item.getContent())
+                .isEdited(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        commentObserver.onCommentAdded(tempComment);
+
         WebSocketMessage<CommentResponse> wsMessage = WebSocketMessage.of(
                 WebSocketMessageType.COMMENT_ADDED,
                 response,
@@ -77,7 +112,7 @@ public class CommentService {
         wsMessage.setTaskId(taskId);
         webSocketBroadcaster.broadcastToTask(taskId, wsMessage);
 
-        log.info("Comment added to task {} by: {}", task.getTitle(), currentUser.getEmail());
+        log.info("Comment added to task {} bucket by: {}", task.getTitle(), currentUser.getEmail());
         return response;
     }
 
@@ -88,11 +123,24 @@ public class CommentService {
         taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "createdAt"));
-        return mongoCommentRepository
-                .findAllByTaskId(taskId, pageable)
-                .stream()
-                .map(CommentResponse::fromDocument)
+        Optional<CommentBucket> latestBucketOpt = commentBucketRepository
+                .findFirstByTaskIdOrderByBucketIndexDesc(taskId);
+
+        if (latestBucketOpt.isEmpty()) return Collections.emptyList();
+
+        int maxIndex = latestBucketOpt.get().getBucketIndex();
+        int targetIndex = maxIndex - page;
+
+        if (targetIndex < 0) return Collections.emptyList();
+
+        CommentBucket bucket = commentBucketRepository
+                .findByTaskIdAndBucketIndex(taskId, targetIndex)
+                .orElse(null);
+
+        if (bucket == null || bucket.getComments() == null) return Collections.emptyList();
+
+        return bucket.getComments().stream()
+                .map(item -> CommentResponse.fromItem(item, taskId))
                 .collect(Collectors.toList());
     }
 
@@ -103,19 +151,25 @@ public class CommentService {
         taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
 
-        Comment comment = mongoCommentRepository.findByIdAndTaskId(commentId, taskId)
+        CommentBucket bucket = commentBucketRepository
+                .findFirstByTaskIdOrderByBucketIndexDesc(taskId)
                 .orElseThrow(() -> new AppException(ErrorCode.BAD_REQUEST));
 
-        if (!comment.getUserId().equals(currentUser.getId())) {
+        CommentItem item = bucket.getComments().stream()
+                .filter(c -> c.getId().equals(commentId))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.BAD_REQUEST));
+
+        if (!item.getUserId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        comment.setContent(request.getContent());
-        comment.setIsEdited(true);
-        comment.setUpdatedAt(LocalDateTime.now());
-        mongoCommentRepository.save(comment);
+        item.setContent(request.getContent());
+        item.setIsEdited(true);
+        item.setUpdatedAt(LocalDateTime.now());
+        commentBucketRepository.save(bucket);
 
-        CommentResponse response = CommentResponse.fromDocument(comment);
+        CommentResponse response = CommentResponse.fromItem(item, taskId);
 
         WebSocketMessage<CommentResponse> wsMessage = WebSocketMessage.of(
                 WebSocketMessageType.COMMENT_UPDATED,
@@ -136,10 +190,16 @@ public class CommentService {
         taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
 
-        Comment comment = mongoCommentRepository.findByIdAndTaskId(commentId, taskId)
+        CommentBucket bucket = commentBucketRepository
+                .findFirstByTaskIdOrderByBucketIndexDesc(taskId)
                 .orElseThrow(() -> new AppException(ErrorCode.BAD_REQUEST));
 
-        boolean isOwner = comment.getUserId().equals(currentUser.getId());
+        CommentItem item = bucket.getComments().stream()
+                .filter(c -> c.getId().equals(commentId))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.BAD_REQUEST));
+
+        boolean isOwner = item.getUserId().equals(currentUser.getId());
         boolean isAdmin = boardRepository.findById(boardId)
                 .map(board -> board.getOwner().getId().equals(currentUser.getId()))
                 .orElse(false);
@@ -148,7 +208,9 @@ public class CommentService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        mongoCommentRepository.delete(comment);
+        bucket.getComments().removeIf(c -> c.getId().equals(commentId));
+        bucket.setCount(bucket.getComments().size());
+        commentBucketRepository.save(bucket);
 
         WebSocketMessage<String> wsMessage = WebSocketMessage.of(
                 WebSocketMessageType.COMMENT_DELETED,
@@ -161,7 +223,7 @@ public class CommentService {
     }
 
     public void deleteAllByTask(Long taskId) {
-        mongoCommentRepository.deleteAllByTaskId(taskId);
+        commentBucketRepository.deleteAllByTaskId(taskId);
         log.info("All comments deleted for task: {}", taskId);
     }
 }
