@@ -278,3 +278,23 @@ export interface WebSocketMessage<T> {
   triggeredBy: string;
   timestamp: string;
 }
+
+export type ChatMessageType = "TEXT" | "SYSTEM" | "IMAGE" | "FILE";
+
+export interface ChatMessage {
+  id: string;
+  taskId: number;
+  senderId: number;
+  senderName: string;
+  senderAvatar: string | null;
+  content: string;
+  type: ChatMessageType;
+  isDeleted: boolean;
+  isOwn: boolean;
+  createdAt: string;
+}
+
+export interface SendChatMessageRequest {
+  content: string;
+  type?: ChatMessageType;
+}

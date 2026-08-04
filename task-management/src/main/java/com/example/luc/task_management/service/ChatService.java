@@ -160,8 +160,7 @@ public class ChatService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        chatMessageRepository.save(systemMessage);
-
+        // Do not save system join message to MongoDB to prevent timeline clutter
         WebSocketMessage<ChatMessageResponse> wsMessage = WebSocketMessage.of(
                 WebSocketMessageType.CHAT_MESSAGE,
                 ChatMessageResponse.fromDocument(systemMessage, currentUser.getId()),
@@ -188,5 +187,120 @@ public class ChatService {
         return chatMessageRepository.countByTaskIdAndIsDeletedFalse(taskId);
     }
 
+    // ─── BOARD CHAT METHODS ───
 
+    public ChatMessageResponse sendBoardMessage(Long boardId, SendMessageRequest request) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        boardSecurityService.checkBoardMember(boardId, currentUser);
+
+        ChatMessage message = ChatMessage.builder()
+                .boardId(boardId)
+                .senderId(currentUser.getId())
+                .senderName(currentUser.getFullName())
+                .senderAvatar(currentUser.getAvatarUrl())
+                .content(request.getContent())
+                .type(request.getType() != null ? request.getType() : MessageType.TEXT)
+                .isDeleted(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        chatMessageRepository.save(message);
+
+        ChatMessageResponse response = ChatMessageResponse.fromDocument(message, currentUser.getId());
+
+        WebSocketMessage<ChatMessageResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.CHAT_MESSAGE,
+                response,
+                boardId,
+                currentUser.getEmail()
+        );
+        webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
+
+        log.info("Board chat message saved: board={}", boardId);
+        return response;
+    }
+
+    public List<ChatMessageResponse> getBoardMessages(Long boardId, int page, int size) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        boardSecurityService.checkBoardMember(boardId, currentUser);
+
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        List<ChatMessageResponse> messages = chatMessageRepository
+                .findAllByBoardIdAndIsDeletedFalse(boardId, pageable)
+                .stream()
+                .map(m -> ChatMessageResponse.fromDocument(m, currentUser.getId()))
+                .collect(Collectors.toList());
+
+        Collections.reverse(messages);
+        return messages;
+    }
+
+    public List<ChatMessageResponse> searchBoardMessages(Long boardId, String keyword, int page, int size) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        boardSecurityService.checkBoardMember(boardId, currentUser);
+
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        return chatMessageRepository.searchByBoardIdAndContent(boardId, keyword, pageable)
+                .stream()
+                .map(m -> ChatMessageResponse.fromDocument(m, currentUser.getId()))
+                .collect(Collectors.toList());
+    }
+
+    public void deleteBoardMessage(Long boardId, String messageId) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        boardSecurityService.checkBoardMember(boardId, currentUser);
+
+        ChatMessage message = chatMessageRepository.findByIdAndBoardId(messageId, boardId)
+                .orElseThrow(() -> new AppException(ErrorCode.BAD_REQUEST));
+
+        if (!message.getSenderId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        message.setIsDeleted(true);
+        message.setContent("[Đã xóa]");
+        chatMessageRepository.save(message);
+
+        WebSocketMessage<String> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.CHAT_MESSAGE_DELETE,
+                messageId,
+                boardId,
+                currentUser.getEmail()
+        );
+        webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
+    }
+
+    public void notifyUserJoinedBoard(Long boardId) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        boardSecurityService.checkBoardMember(boardId, currentUser);
+
+        ChatMessage systemMessage = ChatMessage.builder()
+                .boardId(boardId)
+                .senderId(currentUser.getId())
+                .senderName(currentUser.getFullName())
+                .senderAvatar(currentUser.getAvatarUrl())
+                .content(currentUser.getFullName() + " joined the board chat.")
+                .type(MessageType.SYSTEM)
+                .isDeleted(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        // Do not save system join message to MongoDB to prevent timeline clutter
+        WebSocketMessage<ChatMessageResponse> wsMessage = WebSocketMessage.of(
+                WebSocketMessageType.CHAT_MESSAGE,
+                ChatMessageResponse.fromDocument(systemMessage, currentUser.getId()),
+                boardId,
+                currentUser.getEmail()
+        );
+        webSocketBroadcaster.broadcastToBoard(boardId, wsMessage);
+    }
+
+    public Long countBoardMessages(Long boardId) {
+        User currentUser = SecurityUtils.getCurrentUser();
+        boardSecurityService.checkBoardMember(boardId, currentUser);
+
+        return chatMessageRepository.countByBoardIdAndIsDeletedFalse(boardId);
+    }
 }

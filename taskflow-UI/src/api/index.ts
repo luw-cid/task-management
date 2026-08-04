@@ -7,6 +7,8 @@ export * from "./comments";
 export * from "./labels";
 export * from "./notifications";
 export * from "./statistics";
+export * from "./chat";
 export * from "./subtasks";
 export * from "./tasks";
 export * from "./users";
+export * from "./websocket";

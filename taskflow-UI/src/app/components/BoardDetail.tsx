@@ -9,6 +9,7 @@ import {
 import { BoardMembersModal } from "./BoardMembersModal";
 import { BoardStatistics } from "./BoardStatistics";
 import { FilterSearchPanel, type FilterState } from "./FilterSearchPanel";
+import { BoardChatWidget } from "./BoardChatWidget";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1019,6 +1020,9 @@ export function BoardDetail({
 
       {/* Modals */}
       {membersOpen && <BoardMembersModal onClose={() => setMembersOpen(false)} />}
+
+      {/* Floating Board Chat Drawer (Real-time Team Chat) */}
+      {boardId && <BoardChatWidget boardId={boardId} boardName={boardName || "Project"} />}
     </div>
   );
 }
