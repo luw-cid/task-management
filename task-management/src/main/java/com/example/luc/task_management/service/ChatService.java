@@ -282,11 +282,22 @@ public class ChatService {
         User currentUser = SecurityUtils.getCurrentUser();
         boardSecurityService.checkBoardMember(boardId, currentUser);
 
-        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
 
-        return chatMessageRepository.searchByBoardIdAndContent(boardId, keyword, pageable)
-                .stream()
-                .map(m -> ChatMessageResponse.fromDocument(m, currentUser.getId()))
+        // 1. Tìm các Buckets có chứa tin nhắn khớp từ khóa
+        List<ChatBucket> buckets = chatBucketRepository.searchBucketsByBoardIdAndKeyword(boardId, keyword.trim());
+
+        String lowerKeyword = keyword.toLowerCase();
+
+        // 2. Trích xuất và lọc danh sách tin nhắn thỏa mãn điều kiện
+        return buckets.stream()
+                .filter(bucket -> bucket.getMessages() != null)
+                .flatMap(bucket -> bucket.getMessages().stream())
+                .filter(msg -> !Boolean.TRUE.equals(msg.getIsDeleted()))
+                .filter(msg -> msg.getContent() != null && msg.getContent().toLowerCase().contains(lowerKeyword))
+                .map(item -> ChatMessageResponse.fromItem(item, currentUser.getId()))
                 .collect(Collectors.toList());
     }
 

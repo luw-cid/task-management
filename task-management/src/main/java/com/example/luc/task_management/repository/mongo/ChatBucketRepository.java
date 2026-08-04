@@ -3,8 +3,10 @@ package com.example.luc.task_management.repository.mongo;
 
 import com.example.luc.task_management.entity.mongo.item.ChatBucket;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -14,4 +16,7 @@ public interface ChatBucketRepository extends MongoRepository<ChatBucket, String
 
     // Tìm bucket theo index cụ thể để phân trang
     Optional<ChatBucket> findByBoardIdAndTaskIdIsNullAndBucketIndex(Long boardId, int bucketIndex);
+
+    @Query(value = "{ 'boardId': ?0, 'taskId': null, 'messages': { $elemMatch: { 'content': { $regex: ?1, $options: 'i' }, 'isDeleted': false } } }")
+    List<ChatBucket> searchBucketsByBoardIdAndKeyword(Long boardId, String keyword);
 }
