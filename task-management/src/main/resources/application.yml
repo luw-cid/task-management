@@ -47,9 +47,11 @@ spring:
           order_inserts: true
           order_updates: true
 
+  mongodb:
+    uri: ${SPRING_DATA_MONGODB_URI:mongodb+srv://tienluc14052005_db_user:ZueCWkEYaXp5ZuW9@cluster0.vnngkcn.mongodb.net/task_management?retryWrites=true&w=majority}
   data:
     mongodb:
-      uri: ${MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb+srv://tienluc14052005_db_user:ZueCWkEYaXp5ZuW9@cluster0.vnngkcn.mongodb.net/task_management?retryWrites=true&w=majority}}
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb+srv://tienluc14052005_db_user:ZueCWkEYaXp5ZuW9@cluster0.vnngkcn.mongodb.net/task_management?retryWrites=true&w=majority}
   flyway:
     enabled: false
     locations: classpath:db/migration
