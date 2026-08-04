@@ -474,8 +474,10 @@ export function TaskDetailPanel({
 
   const createCommentMutation = useMutation({
     mutationFn: (content: string) => commentsApi.create(boardId!, taskId!, { content }),
-    onSuccess: async () => {
+    onMutate: () => {
       setNewComment("");
+    },
+    onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["task-comments", boardId, taskId] }),
         queryClient.invalidateQueries({ queryKey: ["task-activity", boardId, taskId] }),

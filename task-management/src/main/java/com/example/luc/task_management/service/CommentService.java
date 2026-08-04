@@ -101,7 +101,7 @@ public class CommentService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        commentObserver.onCommentAdded(tempComment);
+        commentObserver.onCommentAdded(task, tempComment);
 
         WebSocketMessage<CommentResponse> wsMessage = WebSocketMessage.of(
                 WebSocketMessageType.COMMENT_ADDED,
