@@ -242,7 +242,7 @@ export function BoardChatWidget({ boardId, boardName }: BoardChatWidgetProps) {
 
             {/* Messages Body */}
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
-              {boardChatMessagesQuery.isLoading ? (
+              {boardChatMessagesQuery.isLoading && !boardChatMessagesQuery.isError ? (
                 <div className="flex h-full items-center justify-center text-xs text-[#64748b]">
                   Loading messages...
                 </div>
