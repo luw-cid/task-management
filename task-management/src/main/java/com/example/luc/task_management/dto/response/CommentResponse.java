@@ -26,11 +26,11 @@ public class CommentResponse {
                 .id(comment.getId())
                 .taskId(comment.getTaskId())
                 .userId(comment.getUserId())
-                .userFullName(comment.getUserFullName())
+                .userFullName(comment.getUserFullName() != null ? comment.getUserFullName() : "User")
                 .userAvatar(comment.getUserAvatar())
-                .content(comment.getContent())
-                .isEdited(comment.getIsEdited())
-                .createdAt(comment.getCreatedAt())
+                .content(comment.getContent() != null ? comment.getContent() : "")
+                .isEdited(Boolean.TRUE.equals(comment.getIsEdited()))
+                .createdAt(comment.getCreatedAt() != null ? comment.getCreatedAt() : LocalDateTime.now())
                 .updatedAt(comment.getUpdatedAt())
                 .build();
     }

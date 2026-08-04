@@ -22,15 +22,16 @@ public class ChatMessageResponse {
     private LocalDateTime createdAt;
 
     public static ChatMessageResponse fromDocument (ChatMessage message, Long currentUserId) {
+        boolean isDeleted = Boolean.TRUE.equals(message.getIsDeleted());
         return ChatMessageResponse.builder()
                 .id(message.getId())
                 .taskId(message.getTaskId())
                 .senderId(message.getSenderId())
                 .senderName(message.getSenderName())
                 .senderAvatar(message.getSenderAvatar())
-                .content(message.getIsDeleted() ? "Message is deleted" :message.getContent())
+                .content(isDeleted ? "Message is deleted" : message.getContent())
                 .type(message.getType() != null ? message.getType().name() : MessageType.TEXT.name())
-                .isDeleted(message.getIsDeleted())
+                .isDeleted(isDeleted)
                 .isOwn(java.util.Objects.equals(message.getSenderId(), currentUserId))
                 .createdAt(message.getCreatedAt())
                 .build();
