@@ -12,7 +12,7 @@ public class SecurityUtils {
     public static User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 

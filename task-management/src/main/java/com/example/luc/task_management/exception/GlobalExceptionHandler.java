@@ -44,6 +44,15 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler({org.springframework.security.access.AccessDeniedException.class, org.springframework.security.core.AuthenticationException.class})
+    public ResponseEntity<Map<String, Object>> handleSecurityException(Exception ex) {
+        log.error("Security exception: {}", ex.getMessage());
+        return ResponseEntity.status(401).body(Map.of(
+                "status", 401,
+                "message", "Unauthorized access"
+        ));
+    }
+
     // Lỗi không mong đợi – VD: NullPointerException, SQLException
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleException(Exception ex) {
