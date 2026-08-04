@@ -53,13 +53,14 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    // Lỗi không mong đợi – VD: NullPointerException, SQLException
+    // Lỗi không mong đợi – VD: NullPointerException, SQLException, MongoException
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleException(Exception ex) {
         log.error("Unhandled exception: ", ex);
         return ResponseEntity.internalServerError().body(Map.of(
                 "status", 500,
-                "message", "System error, please try again later"
+                "message", ex.getMessage() != null ? ex.getMessage() : "System error, please try again later",
+                "errorType", ex.getClass().getSimpleName()
         ));
     }
 
