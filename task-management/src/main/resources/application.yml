@@ -49,7 +49,7 @@ spring:
 
   data:
     mongodb:
-      uri: mongodb+srv://tienluc14052005_db_user:ZueCWkEYaXp5ZuW9@cluster0.vnngkcn.mongodb.net
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb+srv://tienluc14052005_db_user:ZueCWkEYaXp5ZuW9@cluster0.vnngkcn.mongodb.net/task_management?retryWrites=true&w=majority}
   flyway:
     enabled: false
     locations: classpath:db/migration
@@ -62,4 +62,4 @@ app:
     access-token-expiration: 86400000     # 1 ngày (ms)
     refresh-token-expiration: 604800000   # 7 ngày (ms)
   cors:
-    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:5174}
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:5174,https://task-management-eta-liart.vercel.app}
