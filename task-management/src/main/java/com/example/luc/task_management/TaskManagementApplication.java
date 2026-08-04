@@ -12,6 +12,11 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 @EnableMongoRepositories(basePackages = "com.example.luc.task_management.repository.mongo")
 public class TaskManagementApplication {
 
+	@jakarta.annotation.PostConstruct
+	public void init() {
+		java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+	}
+
 	public static void main(String[] args) {
 		SpringApplication.run(TaskManagementApplication.class, args);
 	}

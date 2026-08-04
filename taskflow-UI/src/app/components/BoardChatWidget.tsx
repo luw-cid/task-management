@@ -35,7 +35,9 @@ function initials(name: string) {
 }
 
 function formatRelativeTime(value: string) {
-  const date = new Date(value);
+  if (!value) return "Just now";
+  const dateStr = value.endsWith("Z") || value.includes("+") ? value : `${value}Z`;
+  const date = new Date(dateStr);
   const now = Date.now();
   const diffMinutes = Math.max(1, Math.round((now - date.getTime()) / 60000));
 
