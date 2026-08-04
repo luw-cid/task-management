@@ -1350,13 +1350,21 @@ export default function App() {
 
   useEffect(() => {
     async function restoreSession() {
+      const token = getAccessToken();
+      if (!token) {
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const response = await api.post("/auth/refresh");
+        const response = await api.post("/auth/refresh", {}, { timeout: 8000 });
         const accessToken = response.data.data.accessToken;
         
         setAccessToken(accessToken);
         setIsAuthenticated(true);
       } catch (err) {
+        clearAuthTokens();
         setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
