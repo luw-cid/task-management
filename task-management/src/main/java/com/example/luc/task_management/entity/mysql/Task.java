@@ -76,12 +76,6 @@ public class Task extends BaseEntity{
     @Builder.Default
     private List<Subtask> subtasks = new ArrayList<>();
 
-    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL,
-            fetch = FetchType.LAZY, orphanRemoval = true)
-    @OrderBy("createdAt ASC")
-    @Builder.Default
-    private List<Comment> comments = new ArrayList<>();
-
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "task_labels",

@@ -1,6 +1,6 @@
 package com.example.luc.task_management.dto.response;
 
-import com.example.luc.task_management.entity.mysql.Comment;
+import com.example.luc.task_management.entity.mongo.Comment;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Builder
 public class CommentResponse {
 
-    private Long id;
+    private String id;
     private Long taskId;
     private Long userId;
     private String userFullName;
@@ -21,13 +21,13 @@ public class CommentResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static CommentResponse fromEntity(Comment comment) {
+    public static CommentResponse fromDocument(Comment comment) {
         return CommentResponse.builder()
                 .id(comment.getId())
-                .taskId(comment.getTask().getId())
-                .userId(comment.getUser().getId())
-                .userFullName(comment.getUser().getFullName())
-                .userAvatar(comment.getUser().getAvatarUrl())
+                .taskId(comment.getTaskId())
+                .userId(comment.getUserId())
+                .userFullName(comment.getUserFullName())
+                .userAvatar(comment.getUserAvatar())
                 .content(comment.getContent())
                 .isEdited(comment.getIsEdited())
                 .createdAt(comment.getCreatedAt())

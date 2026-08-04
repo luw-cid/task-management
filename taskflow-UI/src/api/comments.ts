@@ -14,13 +14,13 @@ export const commentsApi = {
     return unwrapResponse<Comment>(api.post(`/boards/${boardId}/tasks/${taskId}/comments`, payload));
   },
 
-  update(boardId: number, taskId: number, commentId: number, payload: UpdateCommentRequest) {
+  update(boardId: number, taskId: number, commentId: number | string, payload: UpdateCommentRequest) {
     return unwrapResponse<Comment>(
       api.put(`/boards/${boardId}/tasks/${taskId}/comments/${commentId}`, payload)
     );
   },
 
-  delete(boardId: number, taskId: number, commentId: number) {
+  delete(boardId: number, taskId: number, commentId: number | string) {
     return unwrapResponse(api.delete(`/boards/${boardId}/tasks/${taskId}/comments/${commentId}`));
   },
 };

@@ -26,11 +26,15 @@ import {
   X,
   ArrowUp,
   Zap,
+  MessageSquareText,
+  Search as SearchIcon,
+  Trash2 as TrashIcon,
 } from "lucide-react";
-import { activityLogsApi, boardsApi, columnsApi, commentsApi, labelsApi, subtasksApi, tasksApi } from "../../api";
+import { activityLogsApi, boardsApi, chatApi, columnsApi, commentsApi, labelsApi, subtasksApi, tasksApi, websocketService } from "../../api";
 import type {
   ActivityLog,
   BoardMember,
+  ChatMessage,
   Column,
   Comment,
   Label,
@@ -191,6 +195,7 @@ export function TaskDetailPanel({
   const [saveError, setSaveError] = useState("");
   const [labelError, setLabelError] = useState("");
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const commentsEndRef = useRef<HTMLDivElement>(null);
 
   const taskQuery = useQuery({
     queryKey: ["task-detail", boardId, taskId],
@@ -228,6 +233,124 @@ export function TaskDetailPanel({
     queryKey: ["task-activity", boardId, taskId],
     queryFn: () => activityLogsApi.getByTask(boardId!, taskId!),
     enabled: isOpen && boardId !== null && taskId !== null,
+  });
+
+  const [newChatMessage, setNewChatMessage] = useState("");
+  const [chatSearchKeyword, setChatSearchKeyword] = useState("");
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  const chatMessagesQuery = useQuery({
+    queryKey: ["task-chat-messages", boardId, taskId],
+    queryFn: () => chatApi.getMessages(boardId!, taskId!),
+    enabled: isOpen && boardId !== null && taskId !== null,
+  });
+
+  const chatSearchQuery = useQuery({
+    queryKey: ["task-chat-search", boardId, taskId, chatSearchKeyword],
+    queryFn: () => chatApi.searchMessages(boardId!, taskId!, chatSearchKeyword),
+    enabled: isOpen && boardId !== null && taskId !== null && chatSearchKeyword.trim().length > 0,
+  });
+
+  const chatMessages = useMemo(() => {
+    if (chatSearchKeyword.trim().length > 0 && chatSearchQuery.data) {
+      return chatSearchQuery.data;
+    }
+    return chatMessagesQuery.data ?? [];
+  }, [chatSearchKeyword, chatSearchQuery.data, chatMessagesQuery.data]);
+
+  useEffect(() => {
+    if (!isOpen || !boardId || !taskId) return;
+
+    chatApi.joinChat(boardId, taskId).catch(() => { });
+
+    const unsubscribe = websocketService.subscribeToTask(taskId, (wsMessage) => {
+      if (wsMessage.type === "CHAT_MESSAGE") {
+        queryClient.setQueryData<ChatMessage[]>(
+          ["task-chat-messages", boardId, taskId],
+          (old = []) => {
+            const incoming = wsMessage.payload as ChatMessage;
+            if (old.some((m) => m.id === incoming.id)) return old;
+            return [...old, incoming];
+          }
+        );
+      } else if (wsMessage.type === "CHAT_MESSAGE_DELETE") {
+        const deletedId = wsMessage.payload as string;
+        queryClient.setQueryData<ChatMessage[]>(
+          ["task-chat-messages", boardId, taskId],
+          (old = []) =>
+            old.map((m) =>
+              m.id === deletedId
+                ? { ...m, isDeleted: true, content: "Message is deleted" }
+                : m
+            )
+        );
+      }
+
+      if (
+        wsMessage.type === "COMMENT_ADDED" ||
+        wsMessage.type === "COMMENT_UPDATED" ||
+        wsMessage.type === "COMMENT_DELETED"
+      ) {
+        queryClient.invalidateQueries({ queryKey: ["task-comments", boardId, taskId] });
+        queryClient.invalidateQueries({ queryKey: ["task-activity", boardId, taskId] });
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [isOpen, boardId, taskId, queryClient]);
+
+  useEffect(() => {
+    if (chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages.length]);
+
+  useEffect(() => {
+    if (commentsEndRef.current) {
+      commentsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [commentsQuery.data?.length]);
+
+  const sendChatMessageMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!boardId || !taskId) throw new Error("Missing boardId or taskId");
+      return chatApi.sendMessage(boardId, taskId, { content });
+    },
+    onSuccess: (newMessage: ChatMessage) => {
+      setNewChatMessage("");
+      if (newMessage && newMessage.id) {
+        queryClient.setQueryData<ChatMessage[]>(
+          ["task-chat-messages", boardId, taskId],
+          (old = []) => {
+            if (old.some((m) => m.id === newMessage.id)) return old;
+            return [...old, newMessage];
+          }
+        );
+      }
+    },
+  });
+
+  const deleteChatMessageMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      if (!boardId || !taskId) throw new Error("Missing boardId or taskId");
+      await chatApi.deleteMessage(boardId, taskId, messageId);
+      return messageId;
+    },
+    onSuccess: (messageId: string) => {
+      queryClient.setQueryData<ChatMessage[]>(
+        ["task-chat-messages", boardId, taskId],
+        (old = []) =>
+          old.map((m) =>
+            m.id === messageId
+              ? { ...m, isDeleted: true, content: "Message is deleted" }
+              : m
+          )
+      );
+    },
   });
 
   const boardLabelsQuery = useQuery({
@@ -351,6 +474,16 @@ export function TaskDetailPanel({
     mutationFn: (content: string) => commentsApi.create(boardId!, taskId!, { content }),
     onSuccess: async () => {
       setNewComment("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["task-comments", boardId, taskId] }),
+        queryClient.invalidateQueries({ queryKey: ["task-activity", boardId, taskId] }),
+      ]);
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: number | string) => commentsApi.delete(boardId!, taskId!, commentId),
+    onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["task-comments", boardId, taskId] }),
         queryClient.invalidateQueries({ queryKey: ["task-activity", boardId, taskId] }),
@@ -683,44 +816,75 @@ export function TaskDetailPanel({
                         <section>
                           <div className="flex items-center justify-between">
                             <SectionLabel>Comments</SectionLabel>
-                            <span className="text-xs text-[#7c8aa7]">{comments.length}</span>
+                            <span className="rounded-full bg-[#1b2742] px-2.5 py-0.5 text-xs font-semibold text-[#8ea0c4]">
+                              {comments.length}
+                            </span>
                           </div>
-                          <div className="mt-3 space-y-3">
-                            {comments.map((comment) => (
-                              <div key={comment.id} className="rounded-2xl border border-[#22304f] bg-[#0b1323] p-4">
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold text-white"
-                                    style={{ backgroundColor: avatarColor(comment.userFullName) }}
-                                  >
-                                    {initials(comment.userFullName)}
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-semibold text-[#eef2ff]">{comment.userFullName}</p>
-                                    <p className="text-[11px] text-[#667796]">{formatRelativeTime(comment.createdAt)}</p>
-                                  </div>
-                                </div>
-                                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#ccd6eb]">{comment.content}</p>
-                              </div>
-                            ))}
 
-                            <div className="rounded-2xl border border-[#22304f] bg-[#0b1323] p-4">
-                              <textarea
-                                value={newComment}
-                                onChange={(event) => setNewComment(event.target.value)}
-                                rows={3}
-                                placeholder="Write a comment..."
-                                className="w-full resize-none bg-transparent text-sm leading-7 text-[#eef2ff] placeholder:text-[#4b587c] focus:outline-none"
-                              />
-                              <div className="mt-3 flex justify-end">
-                                <button
-                                  onClick={() => newComment.trim() && createCommentMutation.mutate(newComment.trim())}
-                                  className="flex items-center gap-2 rounded-xl bg-[#6d6cf8] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#5b5cf0]"
-                                >
-                                  <Send className="h-3.5 w-3.5" />
-                                  Send
-                                </button>
+                          {/* Scrollable Comments Container */}
+                          <div className="mt-3 max-h-[320px] space-y-3 overflow-y-auto pr-1.5 scrollbar-thin">
+                            {comments.length === 0 ? (
+                              <div className="flex h-20 items-center justify-center rounded-2xl border border-dashed border-[#22304f] text-xs text-[#546487]">
+                                No comments yet. Be the first to comment!
                               </div>
+                            ) : (
+                              comments.map((comment) => (
+                                <div key={comment.id} className="group relative rounded-2xl border border-[#22304f] bg-[#0b1323] p-4 transition-all hover:border-[#2b3d66]">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div
+                                        className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-sm"
+                                        style={{ backgroundColor: avatarColor(comment.userFullName) }}
+                                      >
+                                        {initials(comment.userFullName)}
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-semibold text-[#eef2ff]">{comment.userFullName}</p>
+                                        <p className="text-[11px] text-[#667796]">{formatRelativeTime(comment.createdAt)}</p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteCommentMutation.mutate(comment.id)}
+                                      disabled={deleteCommentMutation.isPending}
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-[#667796] hover:text-[#ef4444] hover:bg-[#ef4444]/10 disabled:opacity-50"
+                                      title="Delete comment"
+                                    >
+                                      <TrashIcon className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                  <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#ccd6eb]">{comment.content}</p>
+                                </div>
+                              ))
+                            )}
+                            <div ref={commentsEndRef} />
+                          </div>
+
+                          {/* Comment Input Box */}
+                          <div className="mt-3 rounded-2xl border border-[#22304f] bg-[#0b1323] p-4">
+                            <textarea
+                              value={newComment}
+                              onChange={(event) => setNewComment(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" && !event.shiftKey && newComment.trim()) {
+                                  event.preventDefault();
+                                  createCommentMutation.mutate(newComment.trim());
+                                }
+                              }}
+                              rows={3}
+                              placeholder="Write a comment... (Enter to send, Shift+Enter for new line)"
+                              className="w-full resize-none bg-transparent text-sm leading-7 text-[#eef2ff] placeholder:text-[#4b587c] focus:outline-none"
+                            />
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                type="button"
+                                disabled={!newComment.trim() || createCommentMutation.isPending}
+                                onClick={() => newComment.trim() && createCommentMutation.mutate(newComment.trim())}
+                                className="flex items-center gap-2 rounded-xl bg-[#6d6cf8] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#5b5cf0] disabled:opacity-50"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                {createCommentMutation.isPending ? "Sending..." : "Send"}
+                              </button>
                             </div>
                           </div>
                         </section>
@@ -817,16 +981,16 @@ export function TaskDetailPanel({
                                   style={
                                     isActive
                                       ? {
-                                          borderColor: statusMeta.color,
-                                          backgroundColor: `${statusMeta.color}26`,
-                                          color: "#ffffff",
-                                          boxShadow: `inset 0 0 0 1px ${statusMeta.color}55`,
-                                        }
+                                        borderColor: statusMeta.color,
+                                        backgroundColor: `${statusMeta.color}26`,
+                                        color: "#ffffff",
+                                        boxShadow: `inset 0 0 0 1px ${statusMeta.color}55`,
+                                      }
                                       : {
-                                          borderColor: "#23314f",
-                                          backgroundColor: "#10192c",
-                                          color: statusMeta.color,
-                                        }
+                                        borderColor: "#23314f",
+                                        backgroundColor: "#10192c",
+                                        color: statusMeta.color,
+                                      }
                                   }
                                 >
                                   <span
@@ -848,9 +1012,9 @@ export function TaskDetailPanel({
                               const isActive = priority === value;
                               const icon =
                                 value === "CRITICAL" ? AlertTriangle :
-                                value === "HIGH" ? ChevronDown :
-                                value === "MEDIUM" ? Minus :
-                                ChevronDown;
+                                  value === "HIGH" ? ChevronDown :
+                                    value === "MEDIUM" ? Minus :
+                                      ChevronDown;
                               const Icon = icon;
                               return (
                                 <button
@@ -892,11 +1056,11 @@ export function TaskDetailPanel({
                                   <button
                                     key={member.userId}
                                     type="button"
-                                  disabled={!isEditing}
-                                  onClick={() => {
-                                    setAssigneeId(member.userId);
-                                    if (saveError) setSaveError("");
-                                  }}
+                                    disabled={!isEditing}
+                                    onClick={() => {
+                                      setAssigneeId(member.userId);
+                                      if (saveError) setSaveError("");
+                                    }}
                                     className="flex w-full items-center gap-3 border-b border-[#22304f] px-4 py-3 text-left transition-colors last:border-b-0 disabled:cursor-default"
                                     style={{ backgroundColor: isActive ? "#232c63" : "transparent" }}
                                   >

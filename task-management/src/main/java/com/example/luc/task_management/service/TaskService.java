@@ -46,6 +46,7 @@ public class TaskService {
     private final WebSocketBroadcaster webSocketBroadcaster;
     private final BoardSecurityService boardSecurityService;
     private final ChatService chatService;
+    private final CommentService commentService;
 
     // ─────────────────────────────────────────
     // TẠO TASK – Dùng Factory Pattern
@@ -316,6 +317,7 @@ public class TaskService {
         taskRepository.delete(task);
 
         chatService.deleteAllByTask(taskId);
+        commentService.deleteAllByTask(taskId);
 
         // Bổ sung WebSocket thông báo xóa task để UI ẩn ngay lập tức
         WebSocketMessage<Long> wsMessage = WebSocketMessage.of(

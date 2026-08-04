@@ -17,14 +17,14 @@ import java.util.List;
 @RequestMapping("/api/boards/{boardId}/tasks/{taskId}/comments")
 public class CommentController {
 
-    private final CommentService commentServer;
+    private final CommentService commentService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<CommentResponse>> addComment(
             @PathVariable Long boardId,
             @PathVariable Long taskId,
-            @Valid @RequestBody CreateCommentRequest request ) {
-        return ResponseEntity.status(201).body(ApiResponse.created(commentServer.addComment(boardId, taskId, request)));
+            @Valid @RequestBody CreateCommentRequest request) {
+        return ResponseEntity.status(201).body(ApiResponse.created(commentService.addComment(boardId, taskId, request)));
     }
 
     @GetMapping
@@ -32,25 +32,25 @@ public class CommentController {
             @PathVariable Long boardId,
             @PathVariable Long taskId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size ) {
-        return ResponseEntity.ok(ApiResponse.success(commentServer.getComments(boardId, taskId, page, size)));
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(commentService.getComments(boardId, taskId, page, size)));
     }
 
     @PutMapping("/{commentId}")
     public ResponseEntity<ApiResponse<CommentResponse>> updateComment(
             @PathVariable Long boardId,
             @PathVariable Long taskId,
-            @PathVariable Long commentId,
-            @Valid @RequestBody UpdateCommentRequest request ) {
-        return ResponseEntity.ok(ApiResponse.success("Comment updated successfully", commentServer.updateComment(boardId, taskId, commentId, request)));
+            @PathVariable String commentId,
+            @Valid @RequestBody UpdateCommentRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Comment updated successfully", commentService.updateComment(boardId, taskId, commentId, request)));
     }
 
     @DeleteMapping("/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @PathVariable Long boardId,
             @PathVariable Long taskId,
-            @PathVariable Long commentId ) {
-        commentServer.deleteComment(boardId, taskId, commentId);
+            @PathVariable String commentId) {
+        commentService.deleteComment(boardId, taskId, commentId);
         return ResponseEntity.ok((ApiResponse.success("Comment deleted successfully", null)));
     }
 }
