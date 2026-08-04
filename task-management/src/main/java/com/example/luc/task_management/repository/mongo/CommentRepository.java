@@ -9,7 +9,7 @@ import java.util.Optional;
 
 public interface CommentRepository extends MongoRepository<Comment, String> {
 
-    Page<Comment> findAllByTaskIdOrderByCreatedAtAsc(Long taskId, Pageable pageable);
+    Page<Comment> findAllByTaskId(Long taskId, Pageable pageable);
 
     Optional<Comment> findByIdAndTaskId(String id, Long taskId);
 

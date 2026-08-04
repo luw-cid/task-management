@@ -12,7 +12,7 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
 
     // Lấy tin nhắn theo task (pagination)
     // isDeleted = false để ẩn tin nhắn đã xóa
-    Page<ChatMessage> findAllByTaskIdAndIsDeletedFalse (Long task, Pageable pageable);
+    Page<ChatMessage> findAllByTaskIdAndIsDeletedFalse (Long taskId, Pageable pageable);
 
     // Lấy tin nhắn theo board (pagination)
     Page<ChatMessage> findAllByBoardIdAndIsDeletedFalse(Long boardId, Pageable pageable);
