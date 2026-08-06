@@ -15,18 +15,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-    // Config tối đa 5 request trong 1p
-    private static final int MAX_REQUEST_PER_MINUTE = 5;
-    private static final long TIME_WINDOW_MS = 60000;
+    // Giới hạn Route Auth: Tối đa 5 lần thử trong 15 phút (900,000 ms)
+    private static final int AUTH_MAX_ATTEMPTS = 5;
+    private static final long AUTH_WINDOW_MS = 15 * 60 * 1000L; // 15 phút
 
-    // bộ nhớ RAM lưu trữ số lượng request theo từng ip
-    private final ConcurrentHashMap<String, RequestCounter> ipRequestMap = new ConcurrentHashMap<>();
+    // Giới hạn Endpoints chung: Tối đa 100 request trong 1 phút (60,000 ms)
+    private static final int GENERAL_MAX_REQUESTS = 100;
+    private static final long GENERAL_WINDOW_MS = 60 * 1000L; // 1 phút
+
+    // Bộ nhớ RAM lưu trữ số lượng request theo từng IP
+    private final ConcurrentHashMap<String, RequestCounter> authRateMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, RequestCounter> generalRateMap = new ConcurrentHashMap<>();
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-
-        String path = request.getRequestURI();
 
         // Bỏ qua các preflight request (OPTIONS) từ trình duyệt
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
@@ -34,60 +37,73 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             return;
         }
 
-        // chỉ áp dụng giới hạn cho API signup, signin
-        if (path.equals("/api/auth/login") || path.equals("/api/auth/register")) {
-            String ip = getClientIP(request);
-            long currentTime = System.currentTimeMillis();
-            RequestCounter currentCounter = ipRequestMap.get(ip);
+        String path = request.getRequestURI();
+        String ip = getClientIP(request);
 
-            // Tính toán số lượng request của IP
-            RequestCounter counter;
-            if (currentCounter == null || currentTime - currentCounter.startTime > TIME_WINDOW_MS) {
-                // Nếu IP này chưa từng gửi hoặc khoảng thời gian 1 phút trước đó đã qua -> Reset lại bộ đếm mới
-                counter = new RequestCounter(currentTime, 1);
-                ipRequestMap.put(ip, counter);
-            } else {
-                // Nếu vẫn đang trong 1p -> tăng bộ đếm
-                currentCounter.count.incrementAndGet();
-                counter = currentCounter;
+        // 1. Áp dụng Rate Limiting chặt chẽ cho API Login & Register (Chặn Brute-Force)
+        if (isAuthRoute(path)) {
+            if (isRateLimited(authRateMap, ip, AUTH_MAX_ATTEMPTS, AUTH_WINDOW_MS)) {
+                log.warn("IP {} bị khóa do vượt quá 5 lần thử đăng nhập/đăng ký trong 15 phút: {}", ip, path);
+                sendRateLimitResponse(response, 429, "Too many authentication attempts. Maximum 5 attempts allowed per 15 minutes. Please try again later.");
+                return;
             }
-            // Kiểm tra xem có vượt quá giới hạn hay không
-            if (counter.count.get() > MAX_REQUEST_PER_MINUTE) {
-                log.warn("IP {} be blocked because send too many requests to API {}", ip, path);
-
-                response.setStatus(429);
-                response.setContentType("application/json");
-                response.setCharacterEncoding("UTF-8");
-
-                // Trả về JSON lỗi đồng bộ giống như cấu hình GlobalExceptionHandler
-                String jsonResponse = "{"
-                        + "\"status\": 429,"
-                        + "\"message\": \"Too many login/register attempts. Please try again in 1 minute.\""
-                        + "}";
-
-                response.getWriter().write(jsonResponse);
+        } else if (path.startsWith("/api/")) {
+            // 2. Áp dụng Rate Limiting chung cho tất cả API endpoints còn lại (Chặn Spam/DDoS)
+            if (isRateLimited(generalRateMap, ip, GENERAL_MAX_REQUESTS, GENERAL_WINDOW_MS)) {
+                log.warn("IP {} bị giới hạn do gửi quá nhiều request (>{}/min) tới API: {}", ip, GENERAL_MAX_REQUESTS, path);
+                sendRateLimitResponse(response, 429, "Too many requests. Please slow down and try again in 1 minute.");
                 return;
             }
         }
+
         filterChain.doFilter(request, response);
     }
 
-    // Helper trích xuất IP của Client (Hỗ trợ khi deploy sau Proxy/Load Balancer như Nginx, Cloudflare)
+    private boolean isAuthRoute(String path) {
+        return path.endsWith("/auth/login") || path.endsWith("/auth/register")
+                || path.contains("/auth/login") || path.contains("/auth/register");
+    }
+
+    private boolean isRateLimited(ConcurrentHashMap<String, RequestCounter> map, String ip, int maxRequests, long windowMs) {
+        long currentTime = System.currentTimeMillis();
+
+        RequestCounter counter = map.compute(ip, (key, existingCounter) -> {
+            if (existingCounter == null || (currentTime - existingCounter.startTime > windowMs)) {
+                return new RequestCounter(currentTime, 1);
+            } else {
+                existingCounter.count.incrementAndGet();
+                return existingCounter;
+            }
+        });
+
+        return counter.count.get() > maxRequests;
+    }
+
+    private void sendRateLimitResponse(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        String jsonResponse = String.format("{\"status\": %d, \"message\": \"%s\"}", status, message);
+        response.getWriter().write(jsonResponse);
+    }
+
+    // Helper trích xuất IP của Client (Hỗ trợ proxy/load balancer như Nginx, Cloudflare)
     private String getClientIP(HttpServletRequest request) {
         String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader == null || xfHeader.isEmpty()) {
-            return request.getRemoteAddr();
+        if (xfHeader != null && !xfHeader.isEmpty()) {
+            return xfHeader.split(",")[0].trim();
         }
-        return xfHeader.split(",")[0].trim();
+        return request.getRemoteAddr();
     }
 
     private static class RequestCounter {
         final long startTime;
         final AtomicInteger count;
 
-        RequestCounter(long startTime, int count) {
+        RequestCounter(long startTime, int initialCount) {
             this.startTime = startTime;
-            this.count = new AtomicInteger(count);
+            this.count = new AtomicInteger(initialCount);
         }
     }
 }
