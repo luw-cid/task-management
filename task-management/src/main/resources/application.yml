@@ -13,16 +13,10 @@ spring:
   application:
     name: task-management
   datasource:
-    url: jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
-    username: postgres.fehtqwthjxzfyvytelke
-    password: 8gvMnNv9i78X7dCi
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.fehtqwthjxzfyvytelke}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
-#    url: jdbc:mysql://localhost:3306/task_management?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&autoReconnect=true
-#    username: ${DB_USERNAME:root}
-#    password: ${DB_PASSWORD:""}
-#    username: root
-#    password: ""
-#    driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: TaskManagerHikariPool
       minimum-idle: 5
@@ -31,6 +25,11 @@ spring:
       connection-timeout: 20000   # 20s
       max-lifetime: 1200000       # 20 minute
       connection-test-query: SELECT 1
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 
   jpa:
     hibernate:
@@ -48,15 +47,19 @@ spring:
           order_updates: true
 
   mongodb:
-    uri: ${SPRING_DATA_MONGODB_URI:mongodb+srv://tienluc14052005_db_user:ZueCWkEYaXp5ZuW9@cluster0.vnngkcn.mongodb.net/task_management?retryWrites=true&w=majority}
+    uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/task_management}
   data:
     mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:mongodb+srv://tienluc14052005_db_user:ZueCWkEYaXp5ZuW9@cluster0.vnngkcn.mongodb.net/task_management?retryWrites=true&w=majority}
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/task_management}
   flyway:
     enabled: false
     locations: classpath:db/migration
     baseline-on-migration: true
     validate-on-migration: true
+
+server:
+  max-http-request-header-size: 8KB
+
 app:
   jwt:
     # Khóa bí mật HS256. Đọc từ biến môi trường JWT_SECRET, nếu không có sẽ tự dùng chuỗi hex mặc định phía sau.

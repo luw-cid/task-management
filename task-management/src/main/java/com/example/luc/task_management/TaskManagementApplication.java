@@ -19,6 +19,17 @@ public class TaskManagementApplication {
 	}
 
 	public static void main(String[] args) {
+		try {
+			io.github.cdimascio.dotenv.Dotenv dotenv = io.github.cdimascio.dotenv.Dotenv.configure()
+					.ignoreIfMissing()
+					.load();
+			dotenv.entries().forEach(entry -> {
+				if (System.getProperty(entry.getKey()) == null) {
+					System.setProperty(entry.getKey(), entry.getValue());
+				}
+			});
+		} catch (Exception ignored) {
+		}
 		SpringApplication.run(TaskManagementApplication.class, args);
 	}
 
