@@ -20,11 +20,12 @@ spring:
     hikari:
       pool-name: TaskManagerHikariPool
       minimum-idle: 5
-      maximum-pool-size: 8
+      maximum-pool-size: 10
       idle-timeout: 300000        # 5 minute
-      connection-timeout: 20000   # 20s
+      connection-timeout: 10000   # 10s
       max-lifetime: 1200000       # 20 minute
-      connection-test-query: SELECT 1
+      keepalive-time: 30000       # Giữ kết nối DB luôn nóng (TCP Keep-Alive 30s)
+      validation-timeout: 3000
 
   servlet:
     multipart:
