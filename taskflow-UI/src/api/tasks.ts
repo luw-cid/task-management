@@ -43,4 +43,12 @@ export const tasksApi = {
   delete(boardId: number, taskId: number) {
     return unwrapResponse(api.delete(`/boards/${boardId}/tasks/${taskId}`));
   },
+
+  getMyTasks(filter?: string, sortBy?: string) {
+    return unwrapResponse<Task[]>(
+      api.get("/tasks/me", {
+        params: { filter, sortBy },
+      })
+    );
+  },
 };

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { TaskDetailPanel } from "./components/TaskDetailPanel";
+import { MyTasksView } from "./components/MyTasksView";
 import { NotificationDropdown } from "./components/NotificationDropdown";
 import { SettingsPage } from "./components/SettingsPage";
 import { BoardMembersModal } from "./components/BoardMembersModal";
@@ -833,6 +834,12 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     },
   });
 
+  const myTasksQuery = useQuery({
+    queryKey: ["my-tasks"],
+    queryFn: () => tasksApi.getMyTasks(),
+    retry: false,
+  });
+
   const createBoardMutation = useMutation({
     mutationFn: (payload: CreateBoardRequest) => boardsApi.createBoard(payload),
     onSuccess: async (board) => {
@@ -942,8 +949,21 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
   }, [allTasksQuery.data, boards]);
 
   const dashboardTasks = useMemo<DashboardTask[]>(() => {
+    const currentUser = currentUserQuery.data;
+    let rawTasks = myTasksQuery.data;
+
+    if (!rawTasks && allTasksQuery.data) {
+      rawTasks = allTasksQuery.data.filter((task) => {
+        if (!currentUser) return true;
+        return (
+          (task.assigneeId && task.assigneeId === currentUser.id) ||
+          (task.assigneeName && currentUser.fullName && task.assigneeName.toLowerCase() === currentUser.fullName.toLowerCase())
+        );
+      });
+    }
+
     const boardMap = new Map(boards.map((board) => [board.id, board]));
-    return (allTasksQuery.data ?? []).map((task) => {
+    return (rawTasks ?? []).map((task) => {
       const parentBoard = boardMap.get(task.boardId);
       return {
         id: String(task.id),
@@ -957,7 +977,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
         done: task.status === "DONE",
       };
     });
-  }, [allTasksQuery.data, boards]);
+  }, [myTasksQuery.data, allTasksQuery.data, currentUserQuery.data, boards]);
 
   // Which sidebar nav item is highlighted
   const appView = getViewFromPath(location.pathname);
@@ -1148,15 +1168,11 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                   />
                 )}
                 {appView === "tasks" && (
-                  <div className="px-8 py-8 w-full">
-                    <h1 className="text-2xl font-semibold text-foreground mb-1">My Tasks</h1>
-                    <p className="text-sm text-muted-foreground mb-6">All tasks assigned to you across boards</p>
-                    <div className="rounded-xl border border-border bg-card overflow-hidden w-full">
-                      <div className="divide-y divide-border/50">
-                        {dashboardTasks.map((task) => <TaskRow key={task.id} task={task} onOpen={handleOpenTaskDetail} />)}
-                      </div>
-                    </div>
-                  </div>
+                  <MyTasksView
+                    tasks={dashboardTasks}
+                    onOpenTask={handleOpenTaskDetail}
+                    onCreateTask={() => setCreateTaskOpen(true)}
+                  />
                 )}
                 {appView === "notifications" && (
                   <div className="flex flex-col h-full overflow-hidden">

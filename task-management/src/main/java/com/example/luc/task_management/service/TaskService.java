@@ -25,9 +25,13 @@ import com.example.luc.task_management.util.SecurityUtils;
 import com.example.luc.task_management.websocket.WebSocketBroadcaster;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -144,6 +148,42 @@ public class TaskService {
                     return TaskResponse.fromEntity(task, taskProduct.getColor());
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskResponse> getMyTasks(String filter, String sortBy) {
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Task> tasks;
+
+
+        // 2. Lọc dữ liệu trực tiếp ở cấp độ Database dựa theo tab filter
+        if ("active".equalsIgnoreCase(filter)) {
+            // Lấy task còn hạn (chưa hoàn thành và deadline >= hiện tại)
+            tasks = taskRepository.findActiveTasksByAssignee(currentUserId, now);
+        } else if ("overdue".equalsIgnoreCase(filter)) {
+            // Lấy task quá hạn (chưa hoàn thành và deadline < hiện tại)
+            tasks = taskRepository.findOverdueTasksByAssignee(currentUserId, now);
+        } else if ("completed".equalsIgnoreCase(filter)) {
+            // Lấy task đã hoàn thành (status == DONE)
+            tasks = taskRepository.findCompletedTasksByAssignee(currentUserId);
+        } else {
+            // Mặc định lấy tất cả task được gán cho user hiện tại (Sử dụng JOIN FETCH tránh N+1)
+            tasks = taskRepository.findMyTasksWithBoardAndAssignee(currentUserId);
+        }
+
+        // 3. Áp dụng Strategy Pattern để sắp xếp nếu truyền tham số sortBy (deadline | priority | createdAt)
+        if (sortBy != null && !sortBy.isBlank()) {
+            tasks = TaskSortContext.of(sortBy).sort(tasks);
+        }
+        // 4. Map danh sách Entity Task sang TaskResponse DTO
+        return tasks.stream()
+                .map(task -> {
+                    String color = TaskFactory.createTask(task.getType()).getColor();
+                    return TaskResponse.fromEntity(task, color);
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -330,6 +370,7 @@ public class TaskService {
 
         log.info("Task deleted: {} by {}", task.getTitle(), currentUser.getEmail());
     }
+
 
 //    private void checkBoardMember(Long boardId, User user) {
 //        if (!boardRepository.isUserInBoard(boardId, user.getId())) {

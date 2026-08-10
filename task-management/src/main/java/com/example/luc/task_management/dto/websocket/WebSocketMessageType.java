@@ -31,4 +31,7 @@ public enum WebSocketMessageType {
     // Chat message
     CHAT_MESSAGE,
     CHAT_MESSAGE_DELETE,
+
+    // SYSTEM
+    SYSTEM_ALERT
 }

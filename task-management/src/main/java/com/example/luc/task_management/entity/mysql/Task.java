@@ -17,12 +17,14 @@ import java.util.List;
         @Index(name = "idx_tasks_board_id",    columnList = "board_id"),
         @Index(name = "idx_tasks_column_id",   columnList = "column_id"),
         @Index(name = "idx_tasks_assignee_id", columnList = "assignee_id"),
-        @Index(name = "idx_tasks_deadline",    columnList = "deadline")
+        @Index(name = "idx_tasks_deadline",    columnList = "deadline"),
+        @Index(name = "idx_tasks_assignee_status_deadline", columnList = "assignee_id, status, deadline"),
 })
 @Getter @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
 public class Task extends BaseEntity{
 
     @Id

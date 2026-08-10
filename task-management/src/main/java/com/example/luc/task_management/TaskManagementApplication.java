@@ -5,10 +5,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @org.springframework.scheduling.annotation.EnableAsync
 @EnableJpaAuditing
+@EnableScheduling
 @EnableJpaRepositories(basePackages = "com.example.luc.task_management.repository.jpa")
 @EnableMongoRepositories(basePackages = "com.example.luc.task_management.repository.mongo")
 public class TaskManagementApplication {

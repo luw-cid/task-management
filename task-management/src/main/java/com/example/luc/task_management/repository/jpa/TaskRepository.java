@@ -4,6 +4,7 @@ import com.example.luc.task_management.entity.mysql.Task;
 import com.example.luc.task_management.enums.TaskPriority;
 import com.example.luc.task_management.enums.TaskStatus;
 import com.example.luc.task_management.enums.TaskType;
+import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -106,4 +107,69 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             ORDER BY t.createdAt DESC
             """)
     List<Task> findAllBoardWithRelations(@Param("boardId") Long boardId);
+
+    @Query("""
+            SELECT t FROM Task t
+            LEFT JOIN FETCH t.board
+            LEFT JOIN t.assignee
+            LEFT JOIN t.subtasks
+            WHERE t.assignee.id = :assigneeId
+            ORDER BY t.deadline DESC
+            """)
+    List<Task> findMyTasksWithBoardAndAssignee(@Param("assigneeId") Long assigneeId);
+
+    // Lấy task còn hạn
+    @Query("""
+            SELECT t FROM Task t
+            LEFT JOIN FETCH t.board
+            WHERE t.assignee.id = :assigneeId
+                AND t.status != 'DONE' 
+                AND t.deadline >= :now
+            ORDER BY t.deadline ASC
+            """)
+    List<Task> findActiveTasksByAssignee(@Param("assigneeId") Long assigneeId, @Param("now") LocalDateTime now);
+
+    // Lấy task quá hạn
+    @Query("""
+            SELECT t FROM Task t
+            LEFT JOIN FETCH t.board
+            WHERE t.assignee.id = :assigneeId
+                AND t.status != 'DONE'
+                AND t.deadline <= :now
+            ORDER BY t.deadline ASC
+            """)
+    List<Task> findOverdueTasksByAssignee(@Param("assigneeId") Long assigneeId, @Param("now") LocalDateTime now);
+
+    // task đã hoàn thành
+    @Query("""
+            SELECT t FROM Task t
+            LEFT JOIN FETCH t.board
+            WHERE t.assignee.id = :assigneeId
+                AND t.status = 'DONE'
+            ORDER BY t.deadline ASC
+            """)
+    List<Task> findCompletedTasksByAssignee(@Param("assigneeId") Long assigneeId);
+
+//    @Query(value = """
+//    SELECT t FROM Task t
+//    LEFT JOIN FETCH t.board
+//    WHERE t.assignee.id = :assigneeId
+//    """, countQuery = "SELECT COUNT(t) FROM Task t WHERE t.assignee.id = :assigneeId")
+//    Page<Task> findMyTasksPaged(@Param("assigneeId") Long assigneeId, Pageable pageable);
+
+    @Query(value = """
+    SELECT t FROM Task t
+    LEFT JOIN FETCH t.assignee
+    LEFT JOIN FETCH t.board
+    WHERE t.status != 'DONE'
+        AND t.assignee IS NOT NULL
+        AND t.deadline BETWEEN :now AND :upcoming
+        AND NOT EXISTS (
+            SELECT n FROM Notification n
+            WHERE n.referenceId = t.id
+                AND n.referenceType = com.example.luc.task_management.enums.ReferenceType.TASK
+                AND n.type = com.example.luc.task_management.enums.NotificationType.DEADLINE_REMINDER
+        )
+    """)
+    List<Task> findTasksUpcomingDeadline(@Param("now") LocalDateTime now, @Param("upcoming") LocalDateTime upcoming);
 }
