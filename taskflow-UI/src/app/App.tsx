@@ -876,6 +876,10 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["board-columns", activeBoardId] });
     },
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || error?.message || "Không thể cập nhật tên cột";
+      alert(msg);
+    },
   });
 
   const deleteColumnMutation = useMutation({
@@ -888,6 +892,10 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
         queryClient.invalidateQueries({ queryKey: ["board-columns", activeBoardId] }),
         queryClient.invalidateQueries({ queryKey: ["board-tasks", activeBoardId] }),
       ]);
+    },
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || error?.message || "Không thể xóa cột";
+      alert(msg);
     },
   });
 

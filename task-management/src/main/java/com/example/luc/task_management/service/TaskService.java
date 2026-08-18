@@ -180,7 +180,14 @@ public class TaskService {
         // 4. Map danh sách Entity Task sang TaskResponse DTO
         return tasks.stream()
                 .map(task -> {
-                    String color = TaskFactory.createTask(task.getType()).getColor();
+                    String color = "#6366f1";
+                    try {
+                        if (task.getType() != null) {
+                            color = TaskFactory.createTask(task.getType()).getColor();
+                        }
+                    } catch (Exception e) {
+                        // fallback default color
+                    }
                     return TaskResponse.fromEntity(task, color);
                 })
                 .toList();

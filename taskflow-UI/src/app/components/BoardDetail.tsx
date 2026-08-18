@@ -861,16 +861,28 @@ export function BoardDetail({
   }
 
   async function handleUpdateColumn(columnId: string, name: string) {
-    setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, title: name } : c)));
     if (onUpdateColumn) {
-      await onUpdateColumn(columnId, name);
+      try {
+        await onUpdateColumn(columnId, name);
+        setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, title: name } : c)));
+      } catch (err) {
+        // Error alert handled by App.tsx
+      }
+    } else {
+      setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, title: name } : c)));
     }
   }
 
   async function handleDeleteColumn(columnId: string) {
-    setColumns((prev) => prev.filter((c) => c.id !== columnId));
     if (onDeleteColumn) {
-      await onDeleteColumn(columnId);
+      try {
+        await onDeleteColumn(columnId);
+        setColumns((prev) => prev.filter((c) => c.id !== columnId));
+      } catch (err) {
+        // Error alert handled by App.tsx
+      }
+    } else {
+      setColumns((prev) => prev.filter((c) => c.id !== columnId));
     }
   }
 

@@ -35,6 +35,8 @@ public enum ErrorCode {
     // Permission
     FORBIDDEN           (HttpStatus.FORBIDDEN,     "You aren't authorize to do this"),
 
+    CANNOT_DELETE_LAST_COLUMN(HttpStatus.BAD_REQUEST, "Board must have at least one column"),
+
     // Common
     BAD_REQUEST         (HttpStatus.BAD_REQUEST,   "Invalid request"),
     INTERNAL_ERROR      (HttpStatus.INTERNAL_SERVER_ERROR, "System error");
