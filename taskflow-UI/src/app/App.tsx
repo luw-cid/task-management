@@ -8,6 +8,7 @@ import {
   Search, Bell, Settings, ChevronDown, ChevronRight, Calendar,
   Home, ClipboardList, Users, LayoutGrid, TrendingUp, AlertTriangle,
   ExternalLink, Hash, ChevronLeft, LogOut, Check, Trash2, UserPlus, Pencil, MessageSquare,
+  Menu, X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { TaskDetailPanel } from "./components/TaskDetailPanel";
@@ -444,6 +445,7 @@ function Sidebar({
   onOpenBoard,
   onCreateBoard,
   onLogout,
+  isMobileDrawer = false,
 }: {
   active: NavItem;
   collapsed: boolean;
@@ -455,8 +457,11 @@ function Sidebar({
   onOpenBoard: (boardId: number) => void;
   onCreateBoard: () => void;
   onLogout: () => void;
+  isMobileDrawer?: boolean;
 }) {
   const [boardsOpen, setBoardsOpen] = useState(true);
+  const isEffectiveCollapsed = isMobileDrawer ? false : collapsed;
+
   const navItems: { id: NavItem; label: string; icon: React.ElementType; badge?: number }[] = [
     { id: "home",          label: "Home",          icon: Home },
     { id: "tasks",         label: "My Tasks",      icon: ClipboardList },
@@ -464,7 +469,7 @@ function Sidebar({
     { id: "settings",      label: "Settings",      icon: Settings },
   ];
   const labelClass = `overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${
-    collapsed ? "max-w-0 opacity-0 translate-x-1" : "max-w-[180px] opacity-100 translate-x-0"
+    isEffectiveCollapsed ? "max-w-0 opacity-0 translate-x-1" : "max-w-[180px] opacity-100 translate-x-0"
   }`;
   const userName = currentUser?.fullName ?? "Your Profile";
   const userEmail = currentUser?.email ?? "";
@@ -472,20 +477,26 @@ function Sidebar({
 
   return (
     <aside
-      className={`relative flex h-full flex-col border-r border-border bg-card transition-[width,min-width] duration-300 ease-out ${
-        collapsed ? "w-[72px] min-w-[72px]" : "w-[260px] min-w-[260px]"
-      }`}
+      className={
+        isMobileDrawer
+          ? "flex h-full w-full flex-col bg-card"
+          : `hidden md:flex relative h-full flex-col border-r border-border bg-card transition-[width,min-width] duration-300 ease-out ${
+              collapsed ? "w-[72px] min-w-[72px]" : "w-[260px] min-w-[260px]"
+            }`
+      }
     >
-      <button
-        onClick={onToggle}
-        className="absolute -right-3 top-24 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-lg shadow-black/20 hover:bg-secondary hover:text-foreground transition-all"
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
-      </button>
+      {!isMobileDrawer && (
+        <button
+          onClick={onToggle}
+          className="absolute -right-3 top-24 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-lg shadow-black/20 hover:bg-secondary hover:text-foreground transition-all"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
+      )}
 
       <div className={`flex h-[72px] items-center gap-2.5 border-b border-border px-4 transition-all duration-300 ${
-        collapsed ? "justify-center" : ""
+        isEffectiveCollapsed ? "justify-center" : ""
       }`}>
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow shadow-primary/30"><Zap className="h-4 w-4 text-white" strokeWidth={2.5} /></div>
         <span className={`text-lg font-semibold text-foreground tracking-tight ${labelClass}`}>TaskFlow</span>
@@ -494,11 +505,11 @@ function Sidebar({
         <button
           onClick={() => onNav("settings")}
           className={
-            collapsed
+            isEffectiveCollapsed
               ? "group grid h-10 w-full place-items-center rounded-lg px-0 hover:bg-secondary/40 transition-colors"
               : "group flex w-full items-center gap-3 rounded-lg px-2 py-2 hover:bg-secondary/40 transition-colors"
           }
-          title={collapsed ? userName : undefined}
+          title={isEffectiveCollapsed ? userName : undefined}
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white flex-shrink-0 overflow-hidden" style={{ backgroundColor: "#6366f1" }}>
             {currentUser?.avatarUrl ? (
@@ -508,28 +519,28 @@ function Sidebar({
             )}
           </div>
           <div className={`flex-1 text-left min-w-0 ${labelClass}`}><p className="text-sm font-medium text-foreground truncate">{userName}</p><p className="text-xs text-muted-foreground truncate">{userEmail}</p></div>
-          <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-all duration-300 ${collapsed ? "w-0 opacity-0" : "opacity-100"}`} />
+          <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-all duration-300 ${isEffectiveCollapsed ? "w-0 opacity-0" : "opacity-100"}`} />
         </button>
       </div>
-      <nav className={`px-3 py-3 flex flex-col ${collapsed ? "gap-2" : "gap-0.5"}`}>
+      <nav className={`px-3 py-3 flex flex-col ${isEffectiveCollapsed ? "gap-2" : "gap-0.5"}`}>
         {navItems.map(({ id, label, icon: Icon, badge }) => {
           const isActive = active === id;
           return (
             <button
               key={id}
               onClick={() => onNav(id)}
-              title={collapsed ? label : undefined}
+              title={isEffectiveCollapsed ? label : undefined}
               className={`relative w-full flex items-center gap-3 rounded-lg text-sm font-medium transition-all ${
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
-              } ${collapsed ? "h-10 justify-center px-0 py-0" : "px-3 py-2.5"}`}
+              } ${isEffectiveCollapsed ? "h-10 justify-center px-0 py-0" : "px-3 py-2.5"}`}
             >
               <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
               <span className={`flex-1 text-left ${labelClass}`}>{label}</span>
               {badge != null && (
                 <span className={`flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-white px-1.5 ${
-                  collapsed ? "absolute -right-1 top-1" : ""
+                  isEffectiveCollapsed ? "absolute -right-1 top-1" : ""
                 }`}>
                   {badge}
                 </span>
@@ -540,26 +551,26 @@ function Sidebar({
       </nav>
       <div className="px-3 mt-2 flex-1 overflow-y-auto overflow-x-hidden">
         <button
-          onClick={() => !collapsed && setBoardsOpen(!boardsOpen)}
-          className={`w-full flex items-center mb-1 text-muted-foreground ${collapsed ? "h-9 justify-center px-0" : "justify-between px-3 py-2"}`}
-          title={collapsed ? "My Boards" : undefined}
+          onClick={() => !isEffectiveCollapsed && setBoardsOpen(!boardsOpen)}
+          className={`w-full flex items-center mb-1 text-muted-foreground ${isEffectiveCollapsed ? "h-9 justify-center px-0" : "justify-between px-3 py-2"}`}
+          title={isEffectiveCollapsed ? "My Boards" : undefined}
         >
           <span className={`text-xs font-semibold uppercase tracking-wider text-muted-foreground ${labelClass}`}>My Boards</span>
-          {collapsed ? (
+          {isEffectiveCollapsed ? (
             <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
           ) : (
             <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-all duration-300 ${boardsOpen ? "" : "-rotate-90"}`} />
           )}
         </button>
-        {(boardsOpen || collapsed) && (
-          <div className={`flex flex-col ${collapsed ? "gap-3 pt-2" : "gap-0.5"}`}>
+        {(boardsOpen || isEffectiveCollapsed) && (
+          <div className={`flex flex-col ${isEffectiveCollapsed ? "gap-3 pt-2" : "gap-0.5"}`}>
             {boards.map((board) => (
               <button
                 key={board.id}
                 onClick={() => onOpenBoard(board.id)}
-                title={collapsed ? board.name : undefined}
+                title={isEffectiveCollapsed ? board.name : undefined}
                 className={`w-full flex items-center gap-2.5 rounded-lg hover:bg-secondary/40 transition-colors group ${
-                  collapsed ? "h-8 justify-center px-0 py-0" : "px-3 py-2"
+                  isEffectiveCollapsed ? "h-8 justify-center px-0 py-0" : "px-3 py-2"
                 }`}
               >
                 <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: board.color }} />
@@ -572,9 +583,9 @@ function Sidebar({
         <button
           onClick={onCreateBoard}
           className={`mt-4 w-full flex items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-sm font-medium text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all ${
-            collapsed ? "h-10 py-0" : "py-2.5"
+            isEffectiveCollapsed ? "h-10 py-0" : "py-2.5"
           }`}
-          title={collapsed ? "Create Board" : undefined}
+          title={isEffectiveCollapsed ? "Create Board" : undefined}
         >
           <Plus className="h-4 w-4 flex-shrink-0" />
           <span className={labelClass}>Create Board</span>
@@ -584,9 +595,9 @@ function Sidebar({
         <button
           onClick={onLogout}
           className={`w-full flex items-center justify-center gap-2 rounded-lg px-2 text-sm font-medium text-muted-foreground hover:bg-[#ef4444]/10 hover:text-[#ef4444] transition-all ${
-            collapsed ? "h-10 py-0" : "py-2.5"
+            isEffectiveCollapsed ? "h-10 py-0" : "py-2.5"
           }`}
-          title={collapsed ? "Logout" : undefined}
+          title={isEffectiveCollapsed ? "Logout" : undefined}
         >
           <LogOut className="h-4 w-4 flex-shrink-0" />
           <span className={labelClass}>Logout</span>
@@ -681,12 +692,12 @@ function DashboardHome({
   const inProgressTasks = tasks.filter((task) => !task.done).length;
   const overdueTasks = tasks.filter((task) => !task.done && new Date(task.deadline) < new Date()).length;
   return (
-    <div className="flex flex-col gap-8 px-8 py-8 w-full">
+    <div className="flex flex-col gap-5 sm:gap-8 px-3 sm:px-8 py-4 sm:py-8 w-full max-w-7xl mx-auto">
       <div className="flex items-start justify-between gap-4">
-        <div><h1 className="text-2xl font-semibold text-foreground">Good morning, Alice 👋</h1><p className="mt-1 text-sm text-muted-foreground">{today}</p></div>
-        <button onClick={onCreateTask} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow shadow-primary/20 flex-shrink-0"><Plus className="h-4 w-4" />New Task</button>
+        <div><h1 className="text-xl sm:text-2xl font-semibold text-foreground">Good morning 👋</h1><p className="mt-1 text-xs sm:text-sm text-muted-foreground">{today}</p></div>
+        <button onClick={onCreateTask} className="flex items-center gap-2 rounded-lg bg-primary px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow shadow-primary/20 flex-shrink-0"><Plus className="h-4 w-4" /><span>New Task</span></button>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard label="Total Tasks"  value={totalTasks} icon={Hash}          color="#6366f1" sub="Across all boards" />
         <StatCard label="In Progress"  value={inProgressTasks}  icon={Clock}         color="#f59e0b" sub="Active right now" />
         <StatCard label="Completed"    value={completedTasks} icon={CheckCircle2}  color="#10b981" sub="Finished tasks" />
@@ -733,6 +744,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
   const [manageLabelsOpen,   setManageLabelsOpen]   = useState(false);
   const [boardSettingsOpen,  setBoardSettingsOpen]  = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const boardIdNumber = Number(boardId);
 
   const boardsQuery = useQuery({
@@ -1042,9 +1054,110 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-background font-['Inter'] overflow-hidden">
+    <div className="flex flex-col md:flex-row h-screen w-screen bg-background font-['Inter'] overflow-hidden">
 
-      {/* ── Permanent Sidebar ─────────────────────────────────────────────── */}
+      {/* ── Mobile Top Navigation Bar ──────────────────────────────────────── */}
+      <header className="flex md:hidden items-center justify-between px-4 py-3 bg-card border-b border-border z-30 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary/30 text-foreground hover:bg-secondary transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary shadow shadow-primary/30">
+              <Zap className="h-4 w-4 text-white" strokeWidth={2.5} />
+            </div>
+            <span className="font-bold text-base tracking-tight text-foreground">TaskFlow</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setNotifOpen((v) => !v)}
+              className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                notifOpen ? "bg-secondary/50 text-foreground" : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+              }`}
+            >
+              <Bell className="h-4 w-4" />
+              {!!unreadNotificationsCountQuery.data && unreadNotificationsCountQuery.data > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary border-2 border-background" />
+              )}
+            </button>
+            <NotificationDropdown isOpen={notifOpen} onClose={() => setNotifOpen(false)} />
+          </div>
+          <button
+            onClick={() => handleSidebarNav("settings")}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white overflow-hidden"
+            style={{ backgroundColor: "#6366f1" }}
+          >
+            {currentUserQuery.data?.avatarUrl ? (
+              <img src={currentUserQuery.data.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+            ) : (
+              getInitials(currentUserQuery.data?.fullName ?? "TF").slice(0, 2)
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* ── Mobile Navigation Drawer ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-50 flex md:hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative z-10 w-[280px] max-w-[85vw] h-full bg-card shadow-2xl flex flex-col"
+            >
+              <div className="absolute top-4 right-4 z-20">
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <Sidebar
+                active={sidebarNav}
+                collapsed={false}
+                onToggle={() => {}}
+                onNav={(n) => {
+                  handleSidebarNav(n);
+                  setMobileMenuOpen(false);
+                }}
+                boards={dashboardBoards}
+                currentUser={currentUserQuery.data ?? null}
+                unreadNotificationsCount={unreadNotificationsCountQuery.data ?? 0}
+                onOpenBoard={(nextBoardId) => {
+                  navigate(getBoardRoute(nextBoardId));
+                  setNotifOpen(false);
+                  setMobileMenuOpen(false);
+                }}
+                onCreateBoard={() => {
+                  setCreateBoardOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                onLogout={handleLogout}
+                isMobileDrawer={true}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Desktop Permanent Sidebar ──────────────────────────────────────── */}
       <Sidebar
         active={sidebarNav}
         collapsed={sidebarCollapsed}
@@ -1062,7 +1175,7 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <AnimatePresence mode="wait">
           {appView === "board" ? (
-            /* Board view: full-height, sidebar stays visible on left */
+            /* Board view: full-height */
             <motion.div
               key="board"
               initial={{ opacity: 0, x: 20 }}
@@ -1113,16 +1226,16 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
               className="flex flex-col flex-1 min-w-0 overflow-hidden"
             >
               {/* Shared top header for all non-board views */}
-              <header className="flex items-center justify-between px-8 py-4 border-b border-border bg-background/80 backdrop-blur-sm flex-shrink-0">
-                <div className="relative">
+              <header className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 border-b border-border bg-background/80 backdrop-blur-sm flex-shrink-0 gap-3">
+                <div className="relative flex-1 max-w-xs sm:max-w-none">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search tasks, boards..."
-                    className="w-72 rounded-lg border border-border bg-card py-2 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+                    className="w-full sm:w-72 rounded-lg border border-border bg-card py-2 pl-9 pr-4 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2">
                   <div className="relative">
                     <button
                       onClick={() => setNotifOpen((v) => !v)}

@@ -276,7 +276,7 @@ function TaskCard({
         position: "relative",
       } : undefined}
       className={[
-        "group relative flex flex-col gap-3 rounded-lg border p-4 select-none transition-all duration-200",
+        "group relative flex flex-col gap-2.5 sm:gap-3 rounded-lg border p-3 sm:p-4 select-none transition-all duration-200",
         filterClass,
         isDragSource ? "opacity-45 scale-[0.98]" : "",
         task.isDragging
@@ -425,7 +425,7 @@ function KanbanColumn({
   const isDropTarget = dragOverColumnId === col.id;
 
   return (
-    <div className="flex flex-col w-[300px] min-w-[300px] h-full min-h-0 transition-transform duration-200">
+    <div className="flex flex-col w-[85vw] max-w-[320px] sm:w-[300px] sm:min-w-[300px] snap-center flex-shrink-0 h-full min-h-0 transition-transform duration-200">
       {/* Column header */}
       <div
         className={`flex items-center justify-between rounded-t-xl px-4 py-3 border border-b-0 flex-shrink-0 ${
@@ -867,52 +867,49 @@ export function BoardDetail({
       <header className="flex-shrink-0 border-b border-[#334155]">
 
         {/* Row 1: breadcrumb · title · star ── search · filter · settings · add task */}
-        <div className="flex flex-wrap items-center gap-3 px-4 pt-5 pb-3 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 pt-3 pb-2.5 sm:px-6 sm:pt-5 sm:pb-3">
           {/* Left: back + title + members */}
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <button onClick={onBack} className="group flex items-center gap-1.5 text-[#64748b] hover:text-[#94a3b8] transition-colors flex-shrink-0">
-              <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span className="text-xs font-medium">Dashboard</span>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button onClick={onBack} className="group flex items-center gap-1 text-[#64748b] hover:text-[#94a3b8] transition-colors flex-shrink-0" title="Back to Dashboard">
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+              <span className="text-xs font-medium hidden sm:inline">Dashboard</span>
             </button>
-            <span className="text-[#334155] text-sm flex-shrink-0 select-none">/</span>
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#6366f1]/20 flex-shrink-0">
-                <LayoutGrid className="h-4 w-4 text-[#6366f1]" />
+            <span className="text-[#334155] text-sm flex-shrink-0 select-none hidden sm:inline">/</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-[#6366f1]/20 flex-shrink-0">
+                <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#6366f1]" />
               </div>
-              <h1 className="text-base font-semibold text-[#f1f5f9] truncate">{boardName ?? "Project Alpha"}</h1>
+              <h1 className="text-sm sm:text-base font-semibold text-[#f1f5f9] truncate">{boardName ?? "Project Alpha"}</h1>
               <button onClick={() => setStarred((s) => !s)} className="flex-shrink-0 hover:scale-110 transition-transform" title={starred ? "Remove from favourites" : "Add to favourites"}>
-                <Star className="h-4 w-4 transition-colors" style={{ color: starred ? "#f59e0b" : "#475569", fill: starred ? "#f59e0b" : "none" }} />
+                <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors" style={{ color: starred ? "#f59e0b" : "#475569", fill: starred ? "#f59e0b" : "none" }} />
               </button>
             </div>
-            <div className="w-px h-5 bg-[#334155] flex-shrink-0" />
-            <button onClick={() => setMembersOpen(true)} className="flex -space-x-2 hover:opacity-90 transition-opacity flex-shrink-0">
+            <div className="w-px h-4 bg-[#334155] flex-shrink-0 hidden sm:block" />
+            <button onClick={() => setMembersOpen(true)} className="hidden sm:flex -space-x-2 hover:opacity-90 transition-opacity flex-shrink-0">
               {visibleMembers.map((m) => (
-                <div key={m} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0f172a] text-[9px] font-bold text-white flex-shrink-0" style={{ backgroundColor: avatarColor(m) }} title={m}>
+                <div key={m} className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full border-2 border-[#0f172a] text-[8px] sm:text-[9px] font-bold text-white flex-shrink-0" style={{ backgroundColor: avatarColor(m) }} title={m}>
                   {initials(m)}
                 </div>
               ))}
               {extraCount > 0 && (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#334155] text-[9px] font-semibold text-[#94a3b8]">+{extraCount}</div>
+                <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#334155] text-[8px] sm:text-[9px] font-semibold text-[#94a3b8]">+{extraCount}</div>
               )}
-            </button>
-            <button onClick={onInvite ?? (() => setMembersOpen(true))} className="flex items-center gap-1.5 rounded-lg border border-[#334155] bg-[#1e293b] px-3 py-1.5 text-xs font-medium text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors flex-shrink-0">
-              <UserPlus className="h-3.5 w-3.5" /> Invite
             </button>
           </div>
 
           {/* Right: filter + board actions */}
-          <div className="flex flex-wrap items-center justify-end gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {activeTab !== 4 && (
               <button
                 onClick={() => setFilterPanelOpen((v) => !v)}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1 sm:gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   filterPanelOpen || hasActiveFilters
                     ? "border-[#6366f1]/50 bg-[#6366f1]/10 text-[#818cf8]"
                     : "border-[#334155] bg-[#1e293b] text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9]"
                 }`}
               >
                 <Filter className="h-3.5 w-3.5" />
-                Filters
+                <span className="hidden sm:inline">Filters</span>
                 {hasActiveFilters && activeFilterCount > 0 && (
                   <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#6366f1] text-[10px] font-semibold text-white px-1">
                     {activeFilterCount}
@@ -934,7 +931,7 @@ export function BoardDetail({
             >
               <Settings className="h-3.5 w-3.5" />
             </button>
-            <button onClick={onCreateTask} className="flex items-center gap-1.5 rounded-lg bg-[#6366f1] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#5558e8] active:scale-[0.98] transition-all shadow shadow-[#6366f1]/30">
+            <button onClick={onCreateTask} className="flex items-center gap-1 sm:gap-1.5 rounded-lg bg-[#6366f1] px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#5558e8] active:scale-[0.98] transition-all shadow shadow-[#6366f1]/30">
               <Plus className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Add Task</span>
             </button>
@@ -942,7 +939,7 @@ export function BoardDetail({
         </div>
 
         {/* Row 2: view tabs */}
-        <div className="flex items-end gap-0.5 overflow-x-auto px-4 sm:px-6">
+        <div className="flex items-end gap-0.5 overflow-x-auto px-3 sm:px-6">
           {VIEW_TABS.map(({ label, icon: Icon }, i) => (
             <button
               key={label}
@@ -950,7 +947,7 @@ export function BoardDetail({
                 setActiveTab(i);
                 onTabChange?.(i);
               }}
-              className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium border-b-2 transition-all ${
+              className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
                 activeTab === i
                   ? "border-[#6366f1] text-[#6366f1]"
                   : "border-transparent text-[#64748b] hover:text-[#94a3b8] hover:border-[#475569]"
@@ -985,8 +982,8 @@ export function BoardDetail({
           Loading board...
         </div>
       ) : (
-        <main className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
-          <div className="flex gap-4 h-full px-6 py-5 min-w-max items-stretch">
+        <main className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth">
+          <div className="flex gap-3 sm:gap-4 h-full px-3 py-3 sm:px-6 sm:py-5 min-w-max items-stretch">
 
             {allColumns.map((col) => (
               <KanbanColumn
