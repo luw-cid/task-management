@@ -860,6 +860,20 @@ export function BoardDetail({
     ]);
   }
 
+  async function handleUpdateColumn(columnId: string, name: string) {
+    setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, title: name } : c)));
+    if (onUpdateColumn) {
+      await onUpdateColumn(columnId, name);
+    }
+  }
+
+  async function handleDeleteColumn(columnId: string) {
+    setColumns((prev) => prev.filter((c) => c.id !== columnId));
+    if (onDeleteColumn) {
+      await onDeleteColumn(columnId);
+    }
+  }
+
   function handleTaskDragStart(taskId: string, sourceColumnId: string, event: React.DragEvent<HTMLDivElement>) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", taskId);
@@ -1107,14 +1121,8 @@ export function BoardDetail({
                 onColumnDragLeave={() => setDragOverColumnId(null)}
                 onTaskDrop={handleTaskDrop}
                 isTaskMatch={hasActiveFilters ? matchesFilters : undefined}
-                onUpdateColumn={async (columnId, name) => {
-                  setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, title: name } : c)));
-                  if (onUpdateColumn) await onUpdateColumn(columnId, name);
-                }}
-                onDeleteColumn={async (columnId) => {
-                  setColumns((prev) => prev.filter((c) => c.id !== columnId));
-                  if (onDeleteColumn) await onDeleteColumn(columnId);
-                }}
+                onUpdateColumn={handleUpdateColumn}
+                onDeleteColumn={handleDeleteColumn}
               />
             ))}
 
