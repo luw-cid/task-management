@@ -5,6 +5,7 @@ import {
   MoreHorizontal, Paperclip, Calendar, CheckSquare, AlertTriangle,
   Grip, UserPlus, LayoutGrid, List,
   GitBranch, CalendarDays, TrendingUp, Settings, Tag,
+  Pencil, Trash2, Check, X,
 } from "lucide-react";
 import { BoardMembersModal } from "./BoardMembersModal";
 import { BoardStatistics } from "./BoardStatistics";
@@ -412,6 +413,8 @@ function KanbanColumn({
   onColumnDragLeave,
   onTaskDrop,
   isTaskMatch,
+  onUpdateColumn,
+  onDeleteColumn,
 }: {
   col: BoardColumn;
   draggedTask: DraggedTask | null;
@@ -423,9 +426,21 @@ function KanbanColumn({
   onColumnDragLeave: () => void;
   onTaskDrop: (targetColumnId: string) => void;
   isTaskMatch?: (task: BoardTask) => boolean;
+  onUpdateColumn?: (columnId: string, name: string) => void;
+  onDeleteColumn?: (columnId: string) => void;
 }) {
   const isActive = col.id === "in-progress";
   const isDropTarget = dragOverColumnId === col.id;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(col.title);
+  const [isConfirmDelete, setIsConfirmDelete] = useState(false);
+
+  const handleSaveTitle = () => {
+    if (editTitle.trim() && editTitle.trim() !== col.title) {
+      onUpdateColumn?.(col.id, editTitle.trim());
+    }
+    setIsEditing(false);
+  };
 
   return (
     <div className="flex flex-col w-[85vw] max-w-[320px] sm:w-[300px] sm:min-w-[300px] snap-center flex-shrink-0 h-full min-h-0 transition-transform duration-200">
@@ -439,26 +454,95 @@ function KanbanColumn({
               : "border-[#334155] bg-[#1e293b]/50"
         }`}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: col.dotColor }} />
-          <span className={`text-sm font-semibold ${isActive ? "text-[#6366f1]" : "text-[#f1f5f9]"}`}>
-            {col.title}
-          </span>
-          <span
-            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
-            style={{ backgroundColor: col.dotColor + "22", color: col.dotColor }}
-          >
-            {col.tasks.length}
-          </span>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <button className="flex h-6 w-6 items-center justify-center rounded-md text-[#475569] hover:text-[#94a3b8] hover:bg-[#334155]/60 transition-colors">
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-          <button className="flex h-6 w-6 items-center justify-center rounded-md text-[#475569] hover:text-[#94a3b8] hover:bg-[#334155]/60 transition-colors">
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        {isEditing ? (
+          <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-1">
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveTitle();
+                if (e.key === "Escape") {
+                  setEditTitle(col.title);
+                  setIsEditing(false);
+                }
+              }}
+              autoFocus
+              className="w-full rounded bg-[#0f172a] border border-[#6366f1] px-2 py-0.5 text-xs text-[#f1f5f9] focus:outline-none"
+            />
+            <button
+              onClick={handleSaveTitle}
+              className="p-1 text-emerald-400 hover:text-emerald-300 transition-colors flex-shrink-0"
+              title="Lưu tên cột"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => {
+                setEditTitle(col.title);
+                setIsEditing(false);
+              }}
+              className="p-1 text-[#64748b] hover:text-[#94a3b8] transition-colors flex-shrink-0"
+              title="Hủy"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+              <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: col.dotColor }} />
+              <span className={`text-sm font-semibold truncate ${isActive ? "text-[#6366f1]" : "text-[#f1f5f9]"}`}>
+                {col.title}
+              </span>
+              <span
+                className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold flex-shrink-0"
+                style={{ backgroundColor: col.dotColor + "22", color: col.dotColor }}
+              >
+                {col.tasks.length}
+              </span>
+            </div>
+
+            {isConfirmDelete ? (
+              <div className="flex items-center gap-1 text-xs flex-shrink-0">
+                <button
+                  onClick={() => {
+                    onDeleteColumn?.(col.id);
+                    setIsConfirmDelete(false);
+                  }}
+                  className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold hover:bg-rose-500 transition-colors"
+                  title="Xác nhận xóa cột"
+                >
+                  Xóa
+                </button>
+                <button
+                  onClick={() => setIsConfirmDelete(false)}
+                  className="px-1.5 py-0.5 rounded bg-[#334155] text-[#94a3b8] text-[10px] hover:text-white transition-colors"
+                  title="Hủy"
+                >
+                  Hủy
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-[#64748b] hover:text-[#818cf8] hover:bg-[#334155]/60 transition-colors"
+                  title="Chỉnh sửa cột"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setIsConfirmDelete(true)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-[#64748b] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  title="Xóa cột"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Drop zone + cards (scrollable) */}
@@ -729,6 +813,8 @@ export function BoardDetail({
   columnsData?: BoardColumn[];
   isLoading?: boolean;
   onCreateColumn?: (name: string, color: string) => Promise<void>;
+  onUpdateColumn?: (columnId: string, name: string) => Promise<void> | void;
+  onDeleteColumn?: (columnId: string) => Promise<void> | void;
   onMoveTask?: (taskId: string, targetColumnId: string) => Promise<void>;
 }) {
   const [activeTab,    setActiveTab]    = useState(initialActiveTab);
@@ -1019,6 +1105,14 @@ export function BoardDetail({
                 onColumnDragLeave={() => setDragOverColumnId(null)}
                 onTaskDrop={handleTaskDrop}
                 isTaskMatch={hasActiveFilters ? matchesFilters : undefined}
+                onUpdateColumn={async (columnId, name) => {
+                  setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, title: name } : c)));
+                  if (onUpdateColumn) await onUpdateColumn(columnId, name);
+                }}
+                onDeleteColumn={async (columnId) => {
+                  setColumns((prev) => prev.filter((c) => c.id !== columnId));
+                  if (onDeleteColumn) await onDeleteColumn(columnId);
+                }}
               />
             ))}
 

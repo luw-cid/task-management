@@ -868,6 +868,29 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     },
   });
 
+  const updateColumnMutation = useMutation({
+    mutationFn: ({ columnId, name }: { columnId: number; name: string }) => {
+      if (!activeBoardId) throw new Error("No active board selected");
+      return columnsApi.update(activeBoardId, columnId, { name });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["board-columns", activeBoardId] });
+    },
+  });
+
+  const deleteColumnMutation = useMutation({
+    mutationFn: (columnId: number) => {
+      if (!activeBoardId) throw new Error("No active board selected");
+      return columnsApi.delete(activeBoardId, columnId);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["board-columns", activeBoardId] }),
+        queryClient.invalidateQueries({ queryKey: ["board-tasks", activeBoardId] }),
+      ]);
+    },
+  });
+
   const moveTaskMutation = useMutation({
     mutationFn: ({
       boardId,
@@ -1204,6 +1227,18 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
                 onCreateColumn={async (name) => {
                   if (!activeBoardId) throw new Error("No active board selected");
                   await createColumnMutation.mutateAsync({ boardId: activeBoardId, name });
+                }}
+                onUpdateColumn={async (columnId, name) => {
+                  const numId = Number(columnId);
+                  if (!isNaN(numId)) {
+                    await updateColumnMutation.mutateAsync({ columnId: numId, name });
+                  }
+                }}
+                onDeleteColumn={async (columnId) => {
+                  const numId = Number(columnId);
+                  if (!isNaN(numId)) {
+                    await deleteColumnMutation.mutateAsync(numId);
+                  }
                 }}
                 onMoveTask={async (taskId, targetColumnId) => {
                   if (!activeBoardId) throw new Error("No active board selected");
