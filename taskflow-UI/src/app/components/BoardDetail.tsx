@@ -11,6 +11,8 @@ import { BoardStatistics } from "./BoardStatistics";
 import { FilterSearchPanel, type FilterState } from "./FilterSearchPanel";
 import { BoardChatWidget } from "./BoardChatWidget";
 import { BoardListView } from "./BoardListView";
+import { BoardTimelineView } from "./BoardTimelineView";
+import { BoardCalendarView } from "./BoardCalendarView";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -975,11 +977,23 @@ export function BoardDetail({
         )}
       </AnimatePresence>
 
-      {/* ── Board / Statistics / List Area ────────────────────────────────── */}
+      {/* ── Board Views Area (Board, List, Timeline, Calendar, Statistics) ── */}
       {activeTab === 4 ? (
         <BoardStatistics boardId={boardId ?? null} />
       ) : activeTab === 1 ? (
         <BoardListView
+          columns={allColumns}
+          onTaskClick={onTaskClick}
+          matchesFilters={hasActiveFilters ? matchesFilters : undefined}
+        />
+      ) : activeTab === 2 ? (
+        <BoardTimelineView
+          columns={allColumns}
+          onTaskClick={onTaskClick}
+          matchesFilters={hasActiveFilters ? matchesFilters : undefined}
+        />
+      ) : activeTab === 3 ? (
+        <BoardCalendarView
           columns={allColumns}
           onTaskClick={onTaskClick}
           matchesFilters={hasActiveFilters ? matchesFilters : undefined}
