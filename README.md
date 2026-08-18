@@ -35,11 +35,17 @@ Hỗ trợ quản lý công việc, thảo luận nhóm Real-time qua WebSocket 
 ## ✨ Tính năng chính
 
 - 🔐 **Xác thực & Bảo mật** – Đăng ký, đăng nhập, JWT Access Token & Refresh Token lưu trữ an toàn.
-- 📋 **Quản lý Board** – Tạo board, mời thành viên, thống kê tiến độ, phân quyền thành viên.
-- 📊 **Quản lý Column** – Tạo cột tùy chỉnh, đổi màu sắc, thay đổi vị trí kéo thả.
+- 📋 **Quản lý Board & Đa chế độ xem (Multi-View Modes)**:
+  - 🍱 **Board View**: Giao diện Kanban kéo thả với Snap-scroll mượt mà trên Mobile.
+  - 📝 **List View**: Bảng danh sách công việc được phân nhóm theo trạng thái cột (`BoardListView`).
+  - 📈 **Timeline View**: Sơ đồ tiến độ (Gantt Chart) theo ngày/tuần với đường chỉ Hôm nay (`BoardTimelineView`).
+  - 📅 **Calendar View**: Lịch làm việc dạng lưới tháng kèm danh sách công việc của ngày được chọn (`BoardCalendarView`).
+  - 📊 **Statistics View**: Biểu đồ phân tích tiến độ dự án chi tiết (`BoardStatistics`).
+- 📊 **Quản lý Column & Phân quyền Chủ Board** – Tạo cột tùy chỉnh, đổi tên cột trực tiếp (`Edit`), xóa cột (`Delete`), phân quyền nghiêm ngặt dành riêng cho Chủ Board (Owner/Admin) kèm thông báo cảnh báo UI.
+- 📱 **Giao diện Responsive Mobile Tối ưu** – Thanh Navigation Drawer trượt mượt mà, co giãn linh hoạt 100% trên điện thoại và máy tính bảng.
 - ✅ **Quản lý Task** – Tạo task, gán người thực hiện, chuyển cột, phân loại độ ưu tiên, lọc & tìm kiếm.
-- 💬 **Bình luận (Task Comments - MongoDB)** – Đăng bình luận trong task, sửa/xóa bình luận, thanh cuộn mượt mà và tự động cuộn xuống tin nhắn mới nhất.
-- 🗣️ **Chat Room Real-time (Board Chat - MongoDB + WebSocket)** – Cửa sổ Chat nhóm nổi tại giao diện Board, nhắn tin trực tiếp với toàn đội, căn lề tin nhắn góc phải thông minh.
+- 💬 **Bình luận (Task Comments - MongoDB)** – Đăng bình luận trong task, sửa/xóa bình luận, thanh cuộn mượt mà.
+- 🗣️ **Chat Room Real-time (Board Chat - MongoDB + WebSocket)** – Cửa sổ Chat nhóm nổi tại giao diện Board, nhắn tin trực tiếp với toàn đội.
 - 🔔 **Thông báo & Lịch sử** – Real-time notification qua WebSocket và ghi Activity Logs toàn bộ thay đổi.
 
 ---
