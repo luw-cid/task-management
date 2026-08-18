@@ -560,7 +560,7 @@ function CreateColumnForm({
                        "text-[#475569]";
 
   return (
-    <div className="flex flex-col w-[280px] min-w-[280px] h-full min-h-0">
+    <div className="flex flex-col w-[85vw] max-w-[320px] sm:w-[280px] sm:min-w-[280px] snap-center flex-shrink-0 h-full min-h-0">
 
       {/* ── Column header area ─────────────────────────────────────────────── */}
       <div className="flex-shrink-0 rounded-t-xl border border-b-0 border-[#334155] bg-[#1e293b]/80 overflow-hidden">
@@ -663,7 +663,7 @@ function AddColumnButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col items-center justify-center w-[280px] min-w-[280px] h-full rounded-xl border-2 border-dashed border-[#334155]/50 bg-transparent hover:border-[#6366f1]/35 hover:bg-[#6366f1]/[0.04] transition-all duration-200 flex-shrink-0"
+      className="group flex flex-col items-center justify-center w-[85vw] max-w-[320px] sm:w-[280px] sm:min-w-[280px] snap-center flex-shrink-0 h-full rounded-xl border-2 border-dashed border-[#334155]/50 bg-transparent hover:border-[#6366f1]/35 hover:bg-[#6366f1]/[0.04] transition-all duration-200"
     >
       <div className="flex flex-col items-center gap-3.5 p-8">
         {/* Icon container */}
@@ -982,8 +982,8 @@ export function BoardDetail({
           Loading board...
         </div>
       ) : (
-        <main className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth">
-          <div className="flex gap-3 sm:gap-4 h-full px-3 py-3 sm:px-6 sm:py-5 min-w-max items-stretch">
+        <main className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden snap-x snap-proximity scroll-smooth">
+          <div className="flex gap-3 sm:gap-4 h-full px-3 py-3 sm:px-6 sm:py-5 min-w-max items-stretch pr-8 sm:pr-12">
 
             {allColumns.map((col) => (
               <KanbanColumn
