@@ -520,7 +520,7 @@ function KanbanColumn({
                   className="px-1.5 py-0.5 rounded bg-[#334155] text-[#94a3b8] text-[10px] hover:text-white transition-colors"
                   title="Cancel"
                 >
-                  Hủy
+                  Cancel
                 </button>
               </div>
             ) : (
@@ -797,6 +797,8 @@ export function BoardDetail({
   columnsData = COLUMNS,
   isLoading = false,
   onCreateColumn,
+  onUpdateColumn,
+  onDeleteColumn,
   onMoveTask,
 }: {
   onBack: () => void;
