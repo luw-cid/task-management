@@ -10,6 +10,7 @@ import { BoardMembersModal } from "./BoardMembersModal";
 import { BoardStatistics } from "./BoardStatistics";
 import { FilterSearchPanel, type FilterState } from "./FilterSearchPanel";
 import { BoardChatWidget } from "./BoardChatWidget";
+import { BoardListView } from "./BoardListView";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -974,9 +975,15 @@ export function BoardDetail({
         )}
       </AnimatePresence>
 
-      {/* ── Board / Statistics Area ────────────────────────────────────────── */}
+      {/* ── Board / Statistics / List Area ────────────────────────────────── */}
       {activeTab === 4 ? (
         <BoardStatistics boardId={boardId ?? null} />
+      ) : activeTab === 1 ? (
+        <BoardListView
+          columns={allColumns}
+          onTaskClick={onTaskClick}
+          matchesFilters={hasActiveFilters ? matchesFilters : undefined}
+        />
       ) : isLoading ? (
         <div className="flex flex-1 items-center justify-center text-sm text-[#64748b]">
           Loading board...
