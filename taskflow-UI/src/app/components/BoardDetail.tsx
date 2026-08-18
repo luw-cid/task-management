@@ -473,7 +473,7 @@ function KanbanColumn({
             <button
               onClick={handleSaveTitle}
               className="p-1 text-emerald-400 hover:text-emerald-300 transition-colors flex-shrink-0"
-              title="Lưu tên cột"
+              title="Save"
             >
               <Check className="h-3.5 w-3.5" />
             </button>
@@ -483,7 +483,7 @@ function KanbanColumn({
                 setIsEditing(false);
               }}
               className="p-1 text-[#64748b] hover:text-[#94a3b8] transition-colors flex-shrink-0"
-              title="Hủy"
+              title="Cancel"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -511,14 +511,14 @@ function KanbanColumn({
                     setIsConfirmDelete(false);
                   }}
                   className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold hover:bg-rose-500 transition-colors"
-                  title="Xác nhận xóa cột"
+                  title="Confirm delete column"
                 >
-                  Xóa
+                  Delete
                 </button>
                 <button
                   onClick={() => setIsConfirmDelete(false)}
                   className="px-1.5 py-0.5 rounded bg-[#334155] text-[#94a3b8] text-[10px] hover:text-white transition-colors"
-                  title="Hủy"
+                  title="Cancel"
                 >
                   Hủy
                 </button>
@@ -528,14 +528,14 @@ function KanbanColumn({
                 <button
                   onClick={() => setIsEditing(true)}
                   className="flex h-6 w-6 items-center justify-center rounded-md text-[#64748b] hover:text-[#818cf8] hover:bg-[#334155]/60 transition-colors"
-                  title="Chỉnh sửa cột"
+                  title="Edit column"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => setIsConfirmDelete(true)}
                   className="flex h-6 w-6 items-center justify-center rounded-md text-[#64748b] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                  title="Xóa cột"
+                  title="Delete column"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
