@@ -35,10 +35,8 @@ public class ColumnService {
     @Transactional
     public ColumnResponse createColumn(Long boardId, CreateColumnRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        boardSecurityService.checkBoardMember(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
         boardSecurityService.checkBoardNotArchive(boardId);
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOARD_NOT_FOUND));
 
         if (columnRepository.existsByBoardIdAndName(boardId, request.getName())) {
             throw new AppException(ErrorCode.BAD_REQUEST);
@@ -80,7 +78,7 @@ public class ColumnService {
     @Transactional
     public ColumnResponse updateColumn(Long boardId, Long columnId, UpdateColumnRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
-        boardSecurityService.checkBoardMember(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         ColumnEntity column = columnRepository.findByIdAndBoardId(columnId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.COLUMN_NOT_FOUND));
@@ -101,7 +99,7 @@ public class ColumnService {
     @Transactional
     public void deleteColumn(Long boardId, Long columnId) {
         User currentUser = SecurityUtils.getCurrentUser();
-        boardSecurityService.checkBoardMember(boardId, currentUser);
+        Board board = boardSecurityService.getBoardAndCheckAdmin(boardId, currentUser);
 
         long countColumn = columnRepository.countByBoardId(boardId);
         if (countColumn <= 1) {

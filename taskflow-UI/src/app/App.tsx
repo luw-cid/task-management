@@ -866,6 +866,13 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["board-columns", activeBoardId] });
     },
+    onError: (error: any) => {
+      const isForbidden = error?.response?.status === 403;
+      const msg = isForbidden
+        ? "⚠️ Cảnh báo: Chỉ Trưởng nhóm (Owner/Admin) mới có quyền tạo cột!"
+        : (error?.response?.data?.message || error?.message || "Không thể tạo cột");
+      alert(msg);
+    },
   });
 
   const updateColumnMutation = useMutation({
@@ -877,7 +884,10 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
       await queryClient.invalidateQueries({ queryKey: ["board-columns", activeBoardId] });
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || error?.message || "Không thể cập nhật tên cột";
+      const isForbidden = error?.response?.status === 403;
+      const msg = isForbidden
+        ? "⚠️ Cảnh báo: Chỉ Trưởng nhóm (Owner/Admin) mới có quyền chỉnh sửa cột!"
+        : (error?.response?.data?.message || error?.message || "Không thể cập nhật tên cột");
       alert(msg);
     },
   });
@@ -894,7 +904,10 @@ function AuthenticatedLayout({ onLogout }: { onLogout: () => void }) {
       ]);
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || error?.message || "Không thể xóa cột";
+      const isForbidden = error?.response?.status === 403;
+      const msg = isForbidden
+        ? "⚠️ Cảnh báo: Chỉ Trưởng nhóm (Owner/Admin) mới có quyền xóa cột!"
+        : (error?.response?.data?.message || error?.message || "Không thể xóa cột");
       alert(msg);
     },
   });
