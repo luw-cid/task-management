@@ -62,12 +62,12 @@ function SettingsInput({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1.5 sm:gap-2">
+    <div className="flex flex-col gap-1.5 sm:gap-2 w-full">
       <div className="flex items-center justify-between gap-2">
         <label className="text-xs sm:text-sm font-medium text-foreground">{label}</label>
         {badge}
       </div>
-      <div className="relative">
+      <div className="relative w-full">
         {Icon && (
           <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         )}
@@ -101,7 +101,7 @@ function PasswordStrengthMeter({ password }: { password: string }) {
         ))}
       </div>
       {strength.label && (
-        <p className="text-[11px] sm:text-xs" style={{ color: strength.color }}>
+        <p className="text-[11px] sm:text-xs font-medium" style={{ color: strength.color }}>
           {strength.label} password
         </p>
       )}
@@ -175,30 +175,30 @@ function ProfileTab() {
         <p className="text-xs sm:text-sm font-medium text-foreground">Profile Photo</p>
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
           <div
-            className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-2 border-border overflow-hidden flex items-center justify-center text-white select-none flex-shrink-0"
+            className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border-2 border-border overflow-hidden flex items-center justify-center text-white select-none flex-shrink-0 shadow-inner"
             style={{ backgroundColor: "#6366f1" }}
           >
             {avatarUrl ? (
               <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
             ) : (
-              <span className="text-xl sm:text-2xl font-semibold">{initials}</span>
+              <span className="text-lg sm:text-xl font-semibold">{initials}</span>
             )}
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:gap-2">
-            <p className="text-sm font-medium text-foreground">{profile?.fullName ?? "Loading..."}</p>
+          <div className="flex flex-col gap-1 sm:gap-1.5 min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground truncate">{profile?.fullName ?? "Loading..."}</p>
             <p className="text-xs text-muted-foreground">{profile?.role ?? "Member"}</p>
             {avatarUrl ? (
               <button
                 onClick={() => removeAvatarMutation.mutate()}
                 disabled={removeAvatarMutation.isPending}
-                className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-[#ef4444] transition-colors py-0.5 disabled:cursor-not-allowed disabled:opacity-70 w-fit"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-[#ef4444] transition-colors py-0.5 disabled:cursor-not-allowed disabled:opacity-70 w-fit"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {removeAvatarMutation.isPending ? "Removing..." : "Remove Photo"}
               </button>
             ) : (
-              <p className="text-xs text-muted-foreground">Add an avatar URL to show your photo across the app.</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">Add an avatar URL to show your photo across the app.</p>
             )}
           </div>
         </div>
