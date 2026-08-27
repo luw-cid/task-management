@@ -1,0 +1,40 @@
+name: Deploy Backend to Google Cloud Run (Backend CI)
+
+on:
+  push:
+    paths:
+      - "task-management/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - "task-management/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  deploy:
+    name: Build & Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+      # 1. Xác thực quyền GCP qua Service Account Key
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      # 2. Cài đặt Google Cloud SDK
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      # 3. Deploy lên Cloud Run và inject toàn bộ biến môi trường
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy task-backend \
+            --source ./task-management \
+            --region asia-southeast1 \
+            --allow-unauthenticated \
+            --memory 1Gi \
+            --set-env-vars "^##^SPRING_DATASOURCE_URL=${{ secrets.SPRING_DATASOURCE_URL }}##SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }}##SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }}##SPRING_DATA_MONGODB_URI=${{ secrets.SPRING_DATA_MONGODB_URI }}##JWT_SECRET=${{ secrets.JWT_SECRET }}##ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}" \
+            --quiet
+        
