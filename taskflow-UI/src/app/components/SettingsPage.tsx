@@ -62,9 +62,9 @@ function SettingsInput({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-foreground">{label}</label>
+    <div className="flex flex-col gap-1.5 sm:gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-xs sm:text-sm font-medium text-foreground">{label}</label>
         {badge}
       </div>
       <div className="relative">
@@ -77,7 +77,7 @@ function SettingsInput({
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full rounded-lg border border-border bg-input-background py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all disabled:cursor-not-allowed disabled:opacity-70 ${Icon ? "pl-10" : "pl-3.5"} ${rightSlot ? "pr-10" : "pr-3.5"}`}
+          className={`w-full rounded-lg border border-border bg-input-background py-2 sm:py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all disabled:cursor-not-allowed disabled:opacity-70 ${Icon ? "pl-9 sm:pl-10" : "pl-3.5"} ${rightSlot ? "pr-9 sm:pr-10" : "pr-3.5"}`}
         />
         {rightSlot && <div className="absolute right-3 top-1/2 -translate-y-1/2">{rightSlot}</div>}
       </div>
@@ -101,7 +101,7 @@ function PasswordStrengthMeter({ password }: { password: string }) {
         ))}
       </div>
       {strength.label && (
-        <p className="text-xs" style={{ color: strength.color }}>
+        <p className="text-[11px] sm:text-xs" style={{ color: strength.color }}>
           {strength.label} password
         </p>
       )}
@@ -165,47 +165,47 @@ function ProfileTab() {
     .slice(0, 2);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 sm:gap-8">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Profile Settings</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your public profile and personal information.</p>
+        <h2 className="text-base sm:text-lg font-semibold text-foreground">Profile Settings</h2>
+        <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground">Manage your public profile and personal information.</p>
       </div>
 
-      <div className="flex flex-col gap-4 p-6 rounded-xl border border-border bg-card">
-        <p className="text-sm font-medium text-foreground">Profile Photo</p>
-        <div className="flex items-center gap-6">
+      <div className="flex flex-col gap-4 p-4 sm:p-6 rounded-xl border border-border bg-card">
+        <p className="text-xs sm:text-sm font-medium text-foreground">Profile Photo</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
           <div
-            className="h-24 w-24 rounded-full border-2 border-border overflow-hidden flex items-center justify-center text-white select-none flex-shrink-0"
+            className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border-2 border-border overflow-hidden flex items-center justify-center text-white select-none flex-shrink-0"
             style={{ backgroundColor: "#6366f1" }}
           >
             {avatarUrl ? (
               <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
             ) : (
-              <span className="text-2xl font-semibold">{initials}</span>
+              <span className="text-xl sm:text-2xl font-semibold">{initials}</span>
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5 sm:gap-2">
             <p className="text-sm font-medium text-foreground">{profile?.fullName ?? "Loading..."}</p>
             <p className="text-xs text-muted-foreground">{profile?.role ?? "Member"}</p>
             {avatarUrl ? (
               <button
                 onClick={() => removeAvatarMutation.mutate()}
                 disabled={removeAvatarMutation.isPending}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-[#ef4444] transition-colors px-1 disabled:cursor-not-allowed disabled:opacity-70"
+                className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-[#ef4444] transition-colors py-0.5 disabled:cursor-not-allowed disabled:opacity-70 w-fit"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {removeAvatarMutation.isPending ? "Removing..." : "Remove Photo"}
               </button>
             ) : (
-              <p className="text-xs text-muted-foreground px-1">Add an avatar URL to show your photo across the app.</p>
+              <p className="text-xs text-muted-foreground">Add an avatar URL to show your photo across the app.</p>
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-5 p-6 rounded-xl border border-border bg-card">
-        <p className="text-sm font-medium text-foreground">Personal Information</p>
+      <div className="flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 rounded-xl border border-border bg-card">
+        <p className="text-xs sm:text-sm font-medium text-foreground">Personal Information</p>
 
         <SettingsInput
           label="Full Name"
@@ -245,17 +245,17 @@ function ProfileTab() {
         />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <button
           onClick={() => updateProfileMutation.mutate()}
           disabled={profileQuery.isLoading || updateProfileMutation.isPending}
-          className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary/90 active:scale-[0.99] transition-all shadow-lg shadow-primary/25 disabled:cursor-not-allowed disabled:opacity-70"
+          className="flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs sm:text-sm font-medium text-white hover:bg-primary/90 active:scale-[0.99] transition-all shadow-lg shadow-primary/25 disabled:cursor-not-allowed disabled:opacity-70 w-full sm:w-auto"
         >
           {saved ? <CheckCircle2 className="h-4 w-4" /> : null}
           {updateProfileMutation.isPending ? "Saving..." : saved ? "Saved!" : "Save Changes"}
         </button>
-        {submitError && <p className="text-sm text-[#ef4444]">{submitError}</p>}
-        {saved && <p className="text-sm text-[#10b981]">Your profile has been updated.</p>}
+        {submitError && <p className="text-xs sm:text-sm text-[#ef4444]">{submitError}</p>}
+        {saved && <p className="text-xs sm:text-sm text-[#10b981]">Your profile has been updated.</p>}
       </div>
     </div>
   );
@@ -323,14 +323,14 @@ function SecurityTab() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 sm:gap-8">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Security</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your password and active sessions.</p>
+        <h2 className="text-base sm:text-lg font-semibold text-foreground">Security</h2>
+        <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground">Manage your password and active sessions.</p>
       </div>
 
-      <div className="flex flex-col gap-5 p-6 rounded-xl border border-border bg-card">
-        <p className="text-sm font-medium text-foreground">Change Password</p>
+      <div className="flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 rounded-xl border border-border bg-card">
+        <p className="text-xs sm:text-sm font-medium text-foreground">Change Password</p>
 
         <SettingsInput
           label="Current Password"
@@ -371,11 +371,11 @@ function SecurityTab() {
           {confirmErr && <p className="text-xs text-[#ef4444]">{confirmErr}</p>}
         </div>
 
-        <div className="flex items-center gap-3 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
           <button
             onClick={handleUpdate}
             disabled={changePasswordMutation.isPending}
-            className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary/90 active:scale-[0.99] transition-all shadow-lg shadow-primary/25 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs sm:text-sm font-medium text-white hover:bg-primary/90 active:scale-[0.99] transition-all shadow-lg shadow-primary/25 disabled:cursor-not-allowed disabled:opacity-70 w-full sm:w-auto"
           >
             {saved ? <CheckCircle2 className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
             {changePasswordMutation.isPending ? "Updating..." : saved ? "Password Updated!" : "Update Password"}
@@ -384,15 +384,15 @@ function SecurityTab() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 p-6 rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 p-4 sm:p-6 rounded-xl border border-border bg-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
           <div>
-            <p className="text-sm font-medium text-foreground">Active Sessions</p>
+            <p className="text-xs sm:text-sm font-medium text-foreground">Active Sessions</p>
             <p className="text-xs text-muted-foreground mt-0.5">Devices where you are currently signed in</p>
           </div>
           <button
             onClick={() => setSessions((prev) => prev.filter((session) => session.current))}
-            className="text-xs text-[#ef4444] hover:text-[#ef4444]/80 font-medium transition-colors flex items-center gap-1"
+            className="text-xs text-[#ef4444] hover:text-[#ef4444]/80 font-medium transition-colors flex items-center gap-1 self-start sm:self-auto"
           >
             <LogOut className="h-3.5 w-3.5" />
             Revoke all others
@@ -403,29 +403,30 @@ function SecurityTab() {
           {sessions.map((session) => {
             const DeviceIcon = session.icon;
             return (
-              <div key={session.id} className="flex items-center gap-4 py-4 first:pt-2 last:pb-0">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/50 flex-shrink-0">
-                  <DeviceIcon className="h-5 w-5 text-muted-foreground" />
+              <div key={session.id} className="flex items-start sm:items-center gap-3 sm:gap-4 py-3.5 sm:py-4 first:pt-2 last:pb-0">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-secondary/50 flex-shrink-0 mt-0.5 sm:mt-0">
+                  <DeviceIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground truncate">{session.device}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <p className="text-xs sm:text-sm font-medium text-foreground truncate">{session.device}</p>
                     {session.current && (
                       <span className="inline-flex items-center rounded-full bg-[#10b981]/12 px-2 py-0.5 text-[10px] font-semibold text-[#10b981] flex-shrink-0">
                         Current
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 truncate">
                     {session.browser} · {session.location}
                   </p>
+                  <p className="text-[10px] text-muted-foreground sm:hidden mt-0.5">{session.lastActive}</p>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                   <p className="text-xs text-muted-foreground hidden sm:block">{session.lastActive}</p>
                   {!session.current && (
                     <button
                       onClick={() => revokeSession(session.id)}
-                      className="text-xs text-muted-foreground hover:text-[#ef4444] font-medium transition-colors border border-border rounded-md px-2.5 py-1 hover:border-[#ef4444]/40"
+                      className="text-xs text-muted-foreground hover:text-[#ef4444] font-medium transition-colors border border-border rounded-md px-2 sm:px-2.5 py-1 hover:border-[#ef4444]/40"
                     >
                       Revoke
                     </button>
@@ -470,17 +471,17 @@ function NotifPrefsTab() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 sm:gap-8">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Notification Preferences</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Choose what you get notified about.</p>
+        <h2 className="text-base sm:text-lg font-semibold text-foreground">Notification Preferences</h2>
+        <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground">Choose what you get notified about.</p>
       </div>
-      <div className="flex flex-col gap-1 p-6 rounded-xl border border-border bg-card divide-y divide-border/60">
+      <div className="flex flex-col gap-1 p-4 sm:p-6 rounded-xl border border-border bg-card divide-y divide-border/60">
         {rows.map((row) => (
-          <div key={row.id} className="flex items-center justify-between gap-4 py-4 first:pt-2 last:pb-0">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{row.label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{row.desc}</p>
+          <div key={row.id} className="flex items-center justify-between gap-3 sm:gap-4 py-3.5 sm:py-4 first:pt-2 last:pb-0">
+            <div className="min-w-0 pr-2">
+              <p className="text-xs sm:text-sm font-medium text-foreground leading-snug">{row.label}</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-tight">{row.desc}</p>
             </div>
             <Toggle enabled={row.enabled} onToggle={() => toggle(row.id)} />
           </div>
@@ -496,37 +497,37 @@ function AppearanceTab() {
   const accents = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"];
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 sm:gap-8">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Appearance</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Customize how TaskFlow looks for you.</p>
+        <h2 className="text-base sm:text-lg font-semibold text-foreground">Appearance</h2>
+        <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground">Customize how TaskFlow looks for you.</p>
       </div>
 
-      <div className="flex flex-col gap-6 p-6 rounded-xl border border-border bg-card">
+      <div className="flex flex-col gap-5 sm:gap-6 p-4 sm:p-6 rounded-xl border border-border bg-card">
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium text-foreground">Theme</p>
-          <div className="grid grid-cols-3 gap-3">
+          <p className="text-xs sm:text-sm font-medium text-foreground">Theme</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {(["dark", "light", "system"] as const).map((item) => (
               <button
                 key={item}
                 onClick={() => setTheme(item)}
-                className={`flex flex-col items-center gap-2.5 rounded-lg border p-4 transition-all ${theme === item ? "border-primary bg-primary/8" : "border-border bg-secondary/20 hover:border-border/60"}`}
+                className={`flex flex-col items-center gap-2 sm:gap-2.5 rounded-lg border p-2.5 sm:p-4 transition-all ${theme === item ? "border-primary bg-primary/8" : "border-border bg-secondary/20 hover:border-border/60"}`}
               >
-                <div className={`h-8 w-full rounded-md border ${item === "dark" ? "bg-[#0f172a] border-[#334155]" : item === "light" ? "bg-white border-gray-200" : "bg-gradient-to-r from-[#0f172a] to-white border-[#334155]"}`} />
-                <span className={`text-xs font-medium capitalize ${theme === item ? "text-primary" : "text-muted-foreground"}`}>{item}</span>
+                <div className={`h-6 sm:h-8 w-full rounded-md border ${item === "dark" ? "bg-[#0f172a] border-[#334155]" : item === "light" ? "bg-white border-gray-200" : "bg-gradient-to-r from-[#0f172a] to-white border-[#334155]"}`} />
+                <span className={`text-[11px] sm:text-xs font-medium capitalize ${theme === item ? "text-primary" : "text-muted-foreground"}`}>{item}</span>
               </button>
             ))}
           </div>
         </div>
 
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium text-foreground">Accent Color</p>
-          <div className="flex items-center gap-2.5">
+          <p className="text-xs sm:text-sm font-medium text-foreground">Accent Color</p>
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {accents.map((color) => (
               <button
                 key={color}
                 onClick={() => setAccent(color)}
-                className="h-7 w-7 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
+                className="h-7 w-7 sm:h-8 sm:w-8 rounded-full transition-transform hover:scale-110 flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: color }}
                 title={color}
               >
@@ -542,8 +543,8 @@ function AppearanceTab() {
 
 const LANGUAGES = [
   { code: "en", label: "English", region: "United States" },
-  { code: "es", label: "Espanol", region: "Espana" },
-  { code: "fr", label: "Francais", region: "France" },
+  { code: "es", label: "Español", region: "España" },
+  { code: "fr", label: "Français", region: "France" },
   { code: "de", label: "Deutsch", region: "Deutschland" },
   { code: "ja", label: "Japanese", region: "Japan" },
   { code: "zh", label: "Chinese", region: "China" },
@@ -553,26 +554,26 @@ function LanguageTab() {
   const [language, setLanguage] = useState("en");
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 sm:gap-8">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Language</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Choose your preferred display language.</p>
+        <h2 className="text-base sm:text-lg font-semibold text-foreground">Language</h2>
+        <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground">Choose your preferred display language.</p>
       </div>
       <div className="flex flex-col divide-y divide-border/60 rounded-xl border border-border bg-card overflow-hidden">
         {LANGUAGES.map((languageOption) => (
           <button
             key={languageOption.code}
             onClick={() => setLanguage(languageOption.code)}
-            className="flex items-center justify-between px-5 py-4 hover:bg-secondary/20 transition-colors text-left"
+            className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 hover:bg-secondary/20 transition-colors text-left"
           >
             <div>
-              <p className={`text-sm font-medium ${language === languageOption.code ? "text-primary" : "text-foreground"}`}>{languageOption.label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{languageOption.region}</p>
+              <p className={`text-xs sm:text-sm font-medium ${language === languageOption.code ? "text-primary" : "text-foreground"}`}>{languageOption.label}</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">{languageOption.region}</p>
             </div>
             {language === languageOption.code ? (
-              <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0" />
+              <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 ml-2" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground/40 flex-shrink-0 ml-2" />
             )}
           </button>
         ))}
@@ -587,7 +588,7 @@ const MENU_SECTIONS = [
     items: [
       { id: "profile" as SettingsTab, label: "Profile", icon: User },
       { id: "security" as SettingsTab, label: "Security", icon: Shield },
-      { id: "notifications" as SettingsTab, label: "Notification Preferences", icon: Bell },
+      { id: "notifications" as SettingsTab, label: "Notifications", icon: Bell },
     ],
   },
   {
@@ -603,8 +604,30 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden">
-      <nav className="w-[220px] min-w-[220px] flex-shrink-0 border-r border-border bg-card/50 px-3 py-6 overflow-y-auto">
+    <div className="flex flex-col md:flex-row flex-1 min-h-0 w-full overflow-hidden">
+      {/* Mobile Horizontal Navigation Tabs */}
+      <div className="flex md:hidden border-b border-border bg-card/60 px-3 py-2.5 gap-2 overflow-x-auto flex-shrink-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        {MENU_SECTIONS.flatMap((section) => section.items).map(({ id, label, icon: Icon }) => {
+          const isActive = activeTab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-all flex-shrink-0 ${
+                isActive
+                  ? "bg-primary text-white shadow-sm shadow-primary/30"
+                  : "bg-secondary/40 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+              }`}
+            >
+              <Icon className={`h-3.5 w-3.5 ${isActive ? "text-white" : ""}`} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Desktop Sidebar Navigation */}
+      <nav className="hidden md:block w-52 lg:w-60 min-w-[208px] lg:min-w-[240px] flex-shrink-0 border-r border-border bg-card/50 px-3 py-6 overflow-y-auto">
         {MENU_SECTIONS.map((section) => (
           <div key={section.label} className="mb-6">
             <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -631,8 +654,9 @@ export function SettingsPage() {
         ))}
       </nav>
 
-      <div className="flex-1 overflow-y-auto px-8 py-8">
-        <div className="max-w-[640px]">
+      {/* Main Settings Content */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-5 sm:py-6 md:py-8">
+        <div className="max-w-[640px] w-full mx-auto md:mx-0">
           {activeTab === "profile" && <ProfileTab />}
           {activeTab === "security" && <SecurityTab />}
           {activeTab === "notifications" && <NotifPrefsTab />}
