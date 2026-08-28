@@ -69,3 +69,8 @@ app:
     refresh-token-expiration: 604800000   # 7 ngày (ms)
   cors:
     allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:5174,https://task-management-eta-liart.vercel.app}
+
+gcp:
+  storage:
+    bucket-name: ${GCP_STORAGE_BUCKET_NAME:taskflow-attachments}
+    credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
