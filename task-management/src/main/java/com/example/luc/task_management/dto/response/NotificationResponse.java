@@ -1,6 +1,7 @@
 package com.example.luc.task_management.dto.response;
 
 import com.example.luc.task_management.entity.mysql.Notification;
+import com.example.luc.task_management.util.IdFormatter;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 public class NotificationResponse {
     private Long id;
+    private String formattedId; // ví dụ: "N00001"
     private String title;
     private String message;
     private String type;
@@ -23,6 +25,7 @@ public class NotificationResponse {
     public static NotificationResponse fromEntity(Notification notification) {
         return NotificationResponse.builder()
                 .id(notification.getId())
+                .formattedId(IdFormatter.formatNotificationId(notification.getId()))
                 .title(notification.getTitle())
                 .message(notification.getMessage())
                 .type(notification.getType().name())

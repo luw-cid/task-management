@@ -1,6 +1,7 @@
 package com.example.luc.task_management.dto.response;
 
 import com.example.luc.task_management.entity.mysql.Task;
+import com.example.luc.task_management.util.IdFormatter;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.util.List;
 public class TaskResponse {
 
     private Long id;
+    private String formattedId;  // ví dụ: "T00001"
     private String title;
     private String description;
     private String type;
@@ -20,12 +22,16 @@ public class TaskResponse {
     private String priority;
     private String status;
     private Long columnId;
+    private String formattedColumnId; // ví dụ: "C00001"
     private String columnName;
     private Long boardId;
+    private String formattedBoardId;  // ví dụ: "B00001"
     private Long assigneeId;
+    private String formattedAssigneeId; // ví dụ: "U00001"
     private String assigneeName;
     private String assigneeAvatar;
     private Long reporterId;
+    private String formattedReporterId; // ví dụ: "U00001"
     private String reporterName;
     private List<LabelResponse> labels;
     private int subtaskTotal;
@@ -36,25 +42,33 @@ public class TaskResponse {
     private LocalDateTime updatedAt;
 
     public static TaskResponse fromEntity(Task task, String color) {
+        Long colId = task.getColumn() != null ? task.getColumn().getId() : null;
+        Long bId = task.getBoard() != null ? task.getBoard().getId() : null;
+        Long assId = task.getAssignee() != null ? task.getAssignee().getId() : null;
+        Long repId = task.getReporter() != null ? task.getReporter().getId() : null;
+
         return TaskResponse.builder()
                 .id(task.getId())
+                .formattedId(IdFormatter.formatTaskId(task.getId()))
                 .title(task.getTitle())
                 .description(task.getDescription())
                 .type(task.getType() != null ? task.getType().name() : "FEATURE")
                 .color(color != null ? color : "#6366f1")
                 .priority(task.getPriority() != null ? task.getPriority().name() : "MEDIUM")
                 .status(task.getStatus() != null ? task.getStatus().name() : "TO_DO")
-                .columnId(task.getColumn() != null ? task.getColumn().getId() : null)
+                .columnId(colId)
+                .formattedColumnId(IdFormatter.formatColumnId(colId))
                 .columnName(task.getColumn() != null ? task.getColumn().getName() : null)
-                .boardId(task.getBoard() != null ? task.getBoard().getId() : null)
-                .assigneeId(task.getAssignee() != null
-                        ? task.getAssignee().getId() : null)
+                .boardId(bId)
+                .formattedBoardId(IdFormatter.formatBoardId(bId))
+                .assigneeId(assId)
+                .formattedAssigneeId(IdFormatter.formatUserId(assId))
                 .assigneeName(task.getAssignee() != null
                         ? task.getAssignee().getFullName() : null)
                 .assigneeAvatar(task.getAssignee() != null
                         ? task.getAssignee().getAvatarUrl() : null)
-                .reporterId(task.getReporter() != null
-                        ? task.getReporter().getId() : null)
+                .reporterId(repId)
+                .formattedReporterId(IdFormatter.formatUserId(repId))
                 .reporterName(task.getReporter() != null
                         ? task.getReporter().getFullName() : null)
                 .labels(task.getLabels() != null ? task.getLabels().stream()

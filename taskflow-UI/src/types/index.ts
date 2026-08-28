@@ -22,6 +22,7 @@ export interface ChangePasswordRequest {
 
 export interface UserInfo {
   id: number;
+  formattedId?: string;
   email: string;
   fullName: string;
   avatarUrl: string | null;
@@ -30,6 +31,7 @@ export interface UserInfo {
 
 export interface UserProfile {
   id: number;
+  formattedId?: string;
   email: string;
   fullName: string;
   avatarUrl: string | null;
@@ -50,6 +52,7 @@ export type BoardRole = "BOARD_ADMIN" | "MEMBER" | "VIEWER";
 export interface BoardMember {
   id: number;
   userId: number;
+  formattedUserId?: string;
   fullName: string;
   email: string;
   avatarUrl: string | null;
@@ -58,9 +61,11 @@ export interface BoardMember {
 
 export interface Board {
   id: number;
+  formattedId?: string;
   name: string;
   description: string;
   ownerId: number;
+  formattedOwnerId?: string;
   ownerName: string;
   isArchived: boolean;
   memberCount: number;
@@ -87,7 +92,9 @@ export interface InviteBoardMemberRequest {
 
 export interface Column {
   id: number;
+  formattedId?: string;
   boardId: number;
+  formattedBoardId?: string;
   name: string;
   position: number;
   taskCount: number;
@@ -108,6 +115,7 @@ export type TaskStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
 
 export interface Task {
   id: number;
+  formattedId?: string;
   title: string;
   description: string;
   type: TaskType;
@@ -115,12 +123,16 @@ export interface Task {
   priority: TaskPriority;
   status: TaskStatus;
   columnId: number;
+  formattedColumnId?: string;
   columnName: string;
   boardId: number;
+  formattedBoardId?: string;
   assigneeId: number | null;
+  formattedAssigneeId?: string;
   assigneeName: string | null;
   assigneeAvatar: string | null;
   reporterId: number;
+  formattedReporterId?: string;
   reporterName: string;
   labels: Label[];
   subtaskTotal: number;
@@ -158,7 +170,9 @@ export interface AssignTaskRequest {
 
 export interface Subtask {
   id: number;
+  formattedId?: string;
   taskId: number;
+  formattedTaskId?: string;
   title: string;
   completed: boolean;
   position: number;
@@ -178,7 +192,9 @@ export interface UpdateSubtaskRequest {
 export interface Comment {
   id: number;
   taskId: number;
+  formattedTaskId?: string;
   userId: number;
+  formattedUserId?: string;
   userFullName: string;
   userAvatar: string | null;
   content: string;
@@ -197,7 +213,9 @@ export interface UpdateCommentRequest {
 
 export interface Label {
   id: number;
+  formattedId?: string;
   boardId: number;
+  formattedBoardId?: string;
   name: string;
   color: string;
   taskCount: number;
@@ -215,6 +233,7 @@ export interface UpdateLabelRequest {
 
 export interface Notification {
   id: number;
+  formattedId?: string;
   title: string;
   message: string;
   type: string;
@@ -226,10 +245,14 @@ export interface Notification {
 
 export interface ActivityLog {
   id: number;
+  formattedId?: string;
   boardId: number;
+  formattedBoardId?: string;
   taskId: number | null;
+  formattedTaskId?: string;
   taskTitle: string | null;
   userId: number;
+  formattedUserId?: string;
   userFullName: string;
   userAvatarUrl: string | null;
   action: string;
