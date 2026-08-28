@@ -5,6 +5,7 @@ import com.example.luc.task_management.dto.request.subtask.UpdateSubtaskRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.SubtaskResponse;
 import com.example.luc.task_management.service.SubtaskService;
+import com.example.luc.task_management.util.IdFormatter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,34 +22,44 @@ public class SubtaskController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<SubtaskResponse>> createSubtask(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
-            @Valid @RequestBody CreateSubtaskRequest request ) {
-        return ResponseEntity.status(201).body(ApiResponse.created(subtaskServer.createSubtask(boardId, taskId, request)));
+            @PathVariable String boardId,
+            @PathVariable String taskId,
+            @Valid @RequestBody CreateSubtaskRequest request) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.status(201).body(ApiResponse.created(subtaskServer.createSubtask(parsedBoardId, parsedTaskId, request)));
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<SubtaskResponse>>> getSubtasks(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId ) {
-        return ResponseEntity.ok(ApiResponse.success(subtaskServer.getSubtasks(boardId, taskId)));
+            @PathVariable String boardId,
+            @PathVariable String taskId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success(subtaskServer.getSubtasks(parsedBoardId, parsedTaskId)));
     }
 
     @PutMapping("/{subtaskId}")
     public ResponseEntity<ApiResponse<SubtaskResponse>> updateSubtask(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
-            @PathVariable Long subtaskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
+            @PathVariable String subtaskId,
             @Valid @RequestBody UpdateSubtaskRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Subtask updated successfully", subtaskServer.updateSubtask(boardId, taskId, subtaskId, request)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        Long parsedSubtaskId = IdFormatter.parseId(subtaskId);
+        return ResponseEntity.ok(ApiResponse.success("Subtask updated successfully", subtaskServer.updateSubtask(parsedBoardId, parsedTaskId, parsedSubtaskId, request)));
     }
 
     @DeleteMapping("/{subtaskId}")
     public ResponseEntity<ApiResponse<Void>> deleteSubTask(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
-            @PathVariable Long subtaskId ) {
-        subtaskServer.deleteSubtask(boardId, taskId, subtaskId);
+            @PathVariable String boardId,
+            @PathVariable String taskId,
+            @PathVariable String subtaskId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        Long parsedSubtaskId = IdFormatter.parseId(subtaskId);
+        subtaskServer.deleteSubtask(parsedBoardId, parsedTaskId, parsedSubtaskId);
         return ResponseEntity.ok(ApiResponse.success("Subtask deleted successfully", null));
     }
 }

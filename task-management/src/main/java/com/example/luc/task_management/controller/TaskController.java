@@ -7,6 +7,7 @@ import com.example.luc.task_management.dto.request.task.UpdateTaskRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.TaskResponse;
 import com.example.luc.task_management.service.TaskService;
+import com.example.luc.task_management.util.IdFormatter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -30,9 +31,10 @@ public class TaskController {
             description = "Use the Factory Pattern to automatically set priority order by type"
     )
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(
-            @PathVariable Long boardId,
-            @Valid @RequestBody CreateTaskRequest request ) {
-        return ResponseEntity.status(201).body(ApiResponse.created(taskService.createTask(boardId, request)));
+            @PathVariable String boardId,
+            @Valid @RequestBody CreateTaskRequest request) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        return ResponseEntity.status(201).body(ApiResponse.created(taskService.createTask(parsedBoardId, request)));
     }
 
     @GetMapping
@@ -41,31 +43,38 @@ public class TaskController {
             description = "Use the Strategy Pattern to sort. sortBy: deadline|priority|assignee|createdAt"
     )
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getTaskByBoard(
-            @PathVariable Long boardId,
-            @RequestParam (defaultValue = "createdAt") String sortBy) {
-        return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByBoard(boardId, sortBy)));
+            @PathVariable String boardId,
+            @RequestParam(defaultValue = "createdAt") String sortBy) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByBoard(parsedBoardId, sortBy)));
     }
 
-    @GetMapping ("/column/{columnId}")
-    public ResponseEntity<ApiResponse<List<TaskResponse>>> getTasksByColumn (
-            @PathVariable Long boardId,
-            @PathVariable Long columnId ) {
-        return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByColumn(boardId, columnId)));
+    @GetMapping("/column/{columnId}")
+    public ResponseEntity<ApiResponse<List<TaskResponse>>> getTasksByColumn(
+            @PathVariable String boardId,
+            @PathVariable String columnId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedColumnId = IdFormatter.parseId(columnId);
+        return ResponseEntity.ok(ApiResponse.success(taskService.getTasksByColumn(parsedBoardId, parsedColumnId)));
     }
 
     @GetMapping("/{taskId}")
-    public ResponseEntity<ApiResponse<TaskResponse>> getTaskById (
-            @PathVariable Long boardId,
-            @PathVariable Long taskId ) {
-        return ResponseEntity.ok(ApiResponse.success(taskService.getTaskById(boardId, taskId)));
+    public ResponseEntity<ApiResponse<TaskResponse>> getTaskById(
+            @PathVariable String boardId,
+            @PathVariable String taskId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success(taskService.getTaskById(parsedBoardId, parsedTaskId)));
     }
 
     @PutMapping("/{taskId}")
-    public ResponseEntity<ApiResponse<TaskResponse>> updateTask (
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
-            @Valid @RequestBody UpdateTaskRequest request ) {
-        return ResponseEntity.ok(ApiResponse.success("Task updated successfully", taskService.updateTask(boardId, taskId, request)));
+    public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
+            @PathVariable String boardId,
+            @PathVariable String taskId,
+            @Valid @RequestBody UpdateTaskRequest request) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success("Task updated successfully", taskService.updateTask(parsedBoardId, parsedTaskId, request)));
     }
 
     @PutMapping("/{taskId}/move")
@@ -73,26 +82,32 @@ public class TaskController {
             summary = "Move task to difference column",
             description = "Use the Command Pattern to record history + Observer Pattern to send notifications"
     )
-    public ResponseEntity<ApiResponse<TaskResponse>> moveTask (
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
-            @Valid @RequestBody MoveTaskRequest request ) {
-        return ResponseEntity.ok(ApiResponse.success("Task moved successfully", taskService.moveTask(boardId, taskId, request)));
+    public ResponseEntity<ApiResponse<TaskResponse>> moveTask(
+            @PathVariable String boardId,
+            @PathVariable String taskId,
+            @Valid @RequestBody MoveTaskRequest request) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success("Task moved successfully", taskService.moveTask(parsedBoardId, parsedTaskId, request)));
     }
 
     @PutMapping("/{taskId}/assign")
-    public ResponseEntity<ApiResponse<TaskResponse>> assignTask (
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
-            @Valid @RequestBody AssignTaskRequest request ) {
-        return ResponseEntity.ok(ApiResponse.success("Task assigned successfully", taskService.assignTask(boardId, taskId, request)));
+    public ResponseEntity<ApiResponse<TaskResponse>> assignTask(
+            @PathVariable String boardId,
+            @PathVariable String taskId,
+            @Valid @RequestBody AssignTaskRequest request) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success("Task assigned successfully", taskService.assignTask(parsedBoardId, parsedTaskId, request)));
     }
 
     @DeleteMapping("/{taskId}")
-    public ResponseEntity<ApiResponse<TaskResponse>> deleteTask (
-            @PathVariable Long boardId,
-            @PathVariable Long taskId ) {
-        taskService.deleteTask(boardId, taskId);
+    public ResponseEntity<ApiResponse<TaskResponse>> deleteTask(
+            @PathVariable String boardId,
+            @PathVariable String taskId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        taskService.deleteTask(parsedBoardId, parsedTaskId);
         return ResponseEntity.ok(ApiResponse.success("Task deleted successfully", null));
     }
 }

@@ -1,6 +1,7 @@
 package com.example.luc.task_management.dto.request.task;
 
 import com.example.luc.task_management.enums.TaskType;
+import com.example.luc.task_management.util.IdFormatter;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -27,4 +28,24 @@ public class CreateTaskRequest {
     private Long assigneeId;
 
     private LocalDateTime deadline;
+
+    public void setColumnId(Object columnId) {
+        if (columnId == null) {
+            this.columnId = null;
+        } else if (columnId instanceof Number num) {
+            this.columnId = num.longValue();
+        } else {
+            this.columnId = IdFormatter.parseId(columnId.toString());
+        }
+    }
+
+    public void setAssigneeId(Object assigneeId) {
+        if (assigneeId == null) {
+            this.assigneeId = null;
+        } else if (assigneeId instanceof Number num) {
+            this.assigneeId = num.longValue();
+        } else {
+            this.assigneeId = IdFormatter.parseId(assigneeId.toString());
+        }
+    }
 }

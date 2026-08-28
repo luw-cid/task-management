@@ -3,6 +3,7 @@ package com.example.luc.task_management.controller;
 import com.example.luc.task_management.dto.response.ActivityLogResponse;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.service.ActivityLogService;
+import com.example.luc.task_management.util.IdFormatter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,19 +19,19 @@ public class ActivityLogController {
 
     @GetMapping("/activity")
     public ResponseEntity<ApiResponse<List<ActivityLogResponse>>> getBoardActivityLogs(
-            @PathVariable Long boardId,
-            @RequestParam (defaultValue = "0") int page,
-            @RequestParam (defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.success(activityLogService.getBoardActivityLogs(boardId, page, size)));
+            @PathVariable String boardId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        return ResponseEntity.ok(ApiResponse.success(activityLogService.getBoardActivityLogs(parsedBoardId, page, size)));
     }
 
     @GetMapping("/tasks/{taskId}/activity")
     public ResponseEntity<ApiResponse<List<ActivityLogResponse>>> getTaskActivityLogs(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId ) {
-        return ResponseEntity.ok(ApiResponse.success(activityLogService.getTaskActivityLogs(boardId, taskId)));
+            @PathVariable String boardId,
+            @PathVariable String taskId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success(activityLogService.getTaskActivityLogs(parsedBoardId, parsedTaskId)));
     }
-
-
-
 }

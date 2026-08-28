@@ -5,6 +5,7 @@ import com.example.luc.task_management.dto.request.profile.UpdateProfileRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.UserProfileResponse;
 import com.example.luc.task_management.service.UserService;
+import com.example.luc.task_management.util.IdFormatter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,13 +29,14 @@ public class UserProfileController {
 
     @Operation(summary = "Get user profile by ID")
     @GetMapping("/{userId}")
-    public ResponseEntity<ApiResponse<UserProfileResponse>> getUserById(@PathVariable Long userId) {
-        return ResponseEntity.ok(ApiResponse.success(userService.getUserById(userId)));
+    public ResponseEntity<ApiResponse<UserProfileResponse>> getUserById(@PathVariable String userId) {
+        Long parsedUserId = IdFormatter.parseId(userId);
+        return ResponseEntity.ok(ApiResponse.success(userService.getUserById(parsedUserId)));
     }
 
     @Operation(summary = "Update profile")
     @PutMapping("/me")
-    public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile (
+    public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(
             @Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(ApiResponse.success(userService.updateProfile(request)));
     }

@@ -5,6 +5,7 @@ import com.example.luc.task_management.dto.request.column.UpdateColumnRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.ColumnResponse;
 import com.example.luc.task_management.service.ColumnService;
+import com.example.luc.task_management.util.IdFormatter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,27 +21,35 @@ public class ColumnController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<ColumnResponse>> createColumn(
-            @PathVariable Long boardId,
+            @PathVariable String boardId,
             @Valid @RequestBody CreateColumnRequest request) {
-        return ResponseEntity.status(201).body(ApiResponse.created(columnService.createColumn(boardId, request)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        return ResponseEntity.status(201).body(ApiResponse.created(columnService.createColumn(parsedBoardId, request)));
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ColumnResponse>>> getColumnsByBoard(@PathVariable Long boardId) {
-        return ResponseEntity.ok(ApiResponse.success(columnService.getColumnsByBoard(boardId)));
+    public ResponseEntity<ApiResponse<List<ColumnResponse>>> getColumnsByBoard(@PathVariable String boardId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        return ResponseEntity.ok(ApiResponse.success(columnService.getColumnsByBoard(parsedBoardId)));
     }
 
     @PutMapping("/{columnId}")
-    public ResponseEntity<ApiResponse<ColumnResponse>> updateColumn (
-            @PathVariable Long boardId,
-            @PathVariable Long columnId,
+    public ResponseEntity<ApiResponse<ColumnResponse>> updateColumn(
+            @PathVariable String boardId,
+            @PathVariable String columnId,
             @Valid @RequestBody UpdateColumnRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Update successfully" ,columnService.updateColumn(boardId, columnId, request)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedColumnId = IdFormatter.parseId(columnId);
+        return ResponseEntity.ok(ApiResponse.success("Update successfully", columnService.updateColumn(parsedBoardId, parsedColumnId, request)));
     }
 
     @DeleteMapping("/{columnId}")
-    public ResponseEntity<ApiResponse<Void>> deleteColumn(@PathVariable Long boardId, @PathVariable Long columnId) {
-        columnService.deleteColumn(boardId, columnId);
+    public ResponseEntity<ApiResponse<Void>> deleteColumn(
+            @PathVariable String boardId,
+            @PathVariable String columnId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedColumnId = IdFormatter.parseId(columnId);
+        columnService.deleteColumn(parsedBoardId, parsedColumnId);
         return ResponseEntity.ok(ApiResponse.success("Delete successfully", null));
     }
 }

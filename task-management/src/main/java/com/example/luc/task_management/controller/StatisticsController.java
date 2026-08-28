@@ -3,6 +3,7 @@ package com.example.luc.task_management.controller;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.StatisticsResponse;
 import com.example.luc.task_management.service.StatisticsService;
+import com.example.luc.task_management.util.IdFormatter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,7 +20,8 @@ public class StatisticsController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<StatisticsResponse>> getBoardStatistics(
-            @PathVariable Long boardId) {
-        return ResponseEntity.ok(ApiResponse.success(statisticsService.getBoardStatistics(boardId)));
+            @PathVariable String boardId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        return ResponseEntity.ok(ApiResponse.success(statisticsService.getBoardStatistics(parsedBoardId)));
     }
 }

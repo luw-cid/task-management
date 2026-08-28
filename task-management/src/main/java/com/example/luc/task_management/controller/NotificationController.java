@@ -3,6 +3,7 @@ package com.example.luc.task_management.controller;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.NotificationResponse;
 import com.example.luc.task_management.service.NotificationService;
+import com.example.luc.task_management.util.IdFormatter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,8 +39,9 @@ public class NotificationController {
 
     @PutMapping("/{id}/read")
     public ResponseEntity<ApiResponse<Void>> markAsRead(
-            @PathVariable Long id) {
-        notificationService.markAsRead(id);
+            @PathVariable String id) {
+        Long parsedId = IdFormatter.parseId(id);
+        notificationService.markAsRead(parsedId);
         return ResponseEntity.ok(
                 ApiResponse.success("Đã đánh dấu đã đọc", null)
         );
@@ -55,8 +57,9 @@ public class NotificationController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteNotification(
-            @PathVariable Long id) {
-        notificationService.deleteNotification(id);
+            @PathVariable String id) {
+        Long parsedId = IdFormatter.parseId(id);
+        notificationService.deleteNotification(parsedId);
         return ResponseEntity.ok(
                 ApiResponse.success("Xóa thông báo thành công", null)
         );

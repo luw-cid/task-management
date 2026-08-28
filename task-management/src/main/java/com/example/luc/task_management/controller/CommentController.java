@@ -5,6 +5,7 @@ import com.example.luc.task_management.dto.request.comment.UpdateCommentRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.CommentResponse;
 import com.example.luc.task_management.service.CommentService;
+import com.example.luc.task_management.util.IdFormatter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,36 +22,44 @@ public class CommentController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<CommentResponse>> addComment(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
             @Valid @RequestBody CreateCommentRequest request) {
-        return ResponseEntity.status(201).body(ApiResponse.created(commentService.addComment(boardId, taskId, request)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.status(201).body(ApiResponse.created(commentService.addComment(parsedBoardId, parsedTaskId, request)));
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CommentResponse>>> getComments(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ApiResponse.success(commentService.getComments(boardId, taskId, page, size)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success(commentService.getComments(parsedBoardId, parsedTaskId, page, size)));
     }
 
     @PutMapping("/{commentId}")
     public ResponseEntity<ApiResponse<CommentResponse>> updateComment(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
             @PathVariable String commentId,
             @Valid @RequestBody UpdateCommentRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Comment updated successfully", commentService.updateComment(boardId, taskId, commentId, request)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success("Comment updated successfully", commentService.updateComment(parsedBoardId, parsedTaskId, commentId, request)));
     }
 
     @DeleteMapping("/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
             @PathVariable String commentId) {
-        commentService.deleteComment(boardId, taskId, commentId);
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        commentService.deleteComment(parsedBoardId, parsedTaskId, commentId);
         return ResponseEntity.ok((ApiResponse.success("Comment deleted successfully", null)));
     }
 }

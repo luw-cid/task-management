@@ -1,10 +1,10 @@
 package com.example.luc.task_management.controller;
 
-
 import com.example.luc.task_management.dto.request.chat.SendMessageRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.ChatMessageResponse;
 import com.example.luc.task_management.service.ChatService;
+import com.example.luc.task_management.util.IdFormatter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,56 +22,67 @@ public class ChatController {
 
     @PostMapping("/messages")
     public ResponseEntity<ApiResponse<ChatMessageResponse>> sendMessage(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
             @Valid @RequestBody SendMessageRequest request) {
-        return ResponseEntity.status(201).body(ApiResponse.created(chatService.sendMessage(boardId, taskId, request)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.status(201).body(ApiResponse.created(chatService.sendMessage(parsedBoardId, parsedTaskId, request)));
     }
 
     @GetMapping("/messages")
     public ResponseEntity<ApiResponse<List<ChatMessageResponse>>> getMessages(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(ApiResponse.success(chatService.getMessages(boardId, taskId, page, size)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success(chatService.getMessages(parsedBoardId, parsedTaskId, page, size)));
     }
 
     @GetMapping("/messages/search")
     public ResponseEntity<ApiResponse<List<ChatMessageResponse>>> searchMessages(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
             @RequestParam String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(ApiResponse.success(chatService.searchMessages(boardId, taskId, keyword, page, size)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        return ResponseEntity.ok(ApiResponse.success(chatService.searchMessages(parsedBoardId, parsedTaskId, keyword, page, size)));
     }
 
     @DeleteMapping("/messages/{messageId}")
     public ResponseEntity<ApiResponse<ChatMessageResponse>> deleteMessage(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
+            @PathVariable String boardId,
+            @PathVariable String taskId,
             @PathVariable String messageId) {
-        chatService.deleteMessage(boardId, taskId, messageId);
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        chatService.deleteMessage(parsedBoardId, parsedTaskId, messageId);
         return ResponseEntity.ok(ApiResponse.success("Message deleted", null));
     }
 
     @PostMapping("/join")
     public ResponseEntity<ApiResponse<Void>> joinChat(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId) {
-        chatService.notifyUserJoined(boardId, taskId);
+            @PathVariable String boardId,
+            @PathVariable String taskId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        chatService.notifyUserJoined(parsedBoardId, parsedTaskId);
         return ResponseEntity.ok(ApiResponse.success("Joined the chat room", null));
     }
 
     @GetMapping("/count")
-    public ResponseEntity<ApiResponse<Map<String, Long>>>countMessage(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId) {
+    public ResponseEntity<ApiResponse<Map<String, Long>>> countMessage(
+            @PathVariable String boardId,
+            @PathVariable String taskId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "count",
-                chatService.countMessages(boardId, taskId)
+                chatService.countMessages(parsedBoardId, parsedTaskId)
         )));
     }
-
 }

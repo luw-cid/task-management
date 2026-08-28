@@ -5,6 +5,7 @@ import com.example.luc.task_management.dto.request.label.UpdateLabelRequest;
 import com.example.luc.task_management.dto.response.ApiResponse;
 import com.example.luc.task_management.dto.response.LabelResponse;
 import com.example.luc.task_management.service.LabelService;
+import com.example.luc.task_management.util.IdFormatter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -20,59 +21,70 @@ import java.util.List;
 @Tag(name = "Label", description = "Quản lý nhãn trong board")
 public class LabelController {
 
-    private final LabelService  labelService;
+    private final LabelService labelService;
 
     @PostMapping("/labels")
-    @Operation(summary = "Crate new label on board")
+    @Operation(summary = "Create new label on board")
     public ResponseEntity<ApiResponse<LabelResponse>> createLabel(
-            @PathVariable Long boardId,
+            @PathVariable String boardId,
             @Valid @RequestBody CreateLabelRequest request) {
-        return ResponseEntity.status(201).body(ApiResponse.created(labelService.createLabel(boardId, request)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        return ResponseEntity.status(201).body(ApiResponse.created(labelService.createLabel(parsedBoardId, request)));
     }
 
     @GetMapping("/labels")
     @Operation(summary = "Get list labels on board")
     public ResponseEntity<ApiResponse<List<LabelResponse>>> getLabels(
-            @PathVariable Long boardId) {
-        return ResponseEntity.ok(ApiResponse.success(labelService.getLabelsByBoard(boardId)));
+            @PathVariable String boardId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        return ResponseEntity.ok(ApiResponse.success(labelService.getLabelsByBoard(parsedBoardId)));
     }
 
     @PutMapping("/labels/{labelId}")
     @Operation(summary = "Update label")
     public ResponseEntity<ApiResponse<LabelResponse>> updateLabel(
-            @PathVariable Long boardId,
-            @PathVariable Long labelId,
+            @PathVariable String boardId,
+            @PathVariable String labelId,
             @Valid @RequestBody UpdateLabelRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(labelService.updateLabel(boardId, labelId, request)));
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedLabelId = IdFormatter.parseId(labelId);
+        return ResponseEntity.ok(ApiResponse.success(labelService.updateLabel(parsedBoardId, parsedLabelId, request)));
     }
 
     @DeleteMapping("/labels/{labelId}")
     @Operation(summary = "Delete label on board")
     public ResponseEntity<ApiResponse<Void>> deleteLabel(
-            @PathVariable Long boardId,
-            @PathVariable Long labelId) {
-        labelService.deleteLabel(boardId, labelId);
+            @PathVariable String boardId,
+            @PathVariable String labelId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedLabelId = IdFormatter.parseId(labelId);
+        labelService.deleteLabel(parsedBoardId, parsedLabelId);
         return ResponseEntity.ok(ApiResponse.success("Label deleted successfully", null));
     }
 
     @PostMapping("/tasks/{taskId}/labels/{labelId}")
     @Operation(summary = "Add label to task")
     public ResponseEntity<ApiResponse<Void>> addLabelToTask(
-            @PathVariable long boardId,
-            @PathVariable long taskId,
-            @PathVariable long labelId) {
-        labelService.addLabelToTask(boardId, taskId, labelId);
+            @PathVariable String boardId,
+            @PathVariable String taskId,
+            @PathVariable String labelId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        Long parsedLabelId = IdFormatter.parseId(labelId);
+        labelService.addLabelToTask(parsedBoardId, parsedTaskId, parsedLabelId);
         return ResponseEntity.ok(ApiResponse.success("Label added to task successfully", null));
     }
 
     @DeleteMapping({"/tasks/{taskId}/labels/{labelId}", "/task/{taskId}/labels/{labelId}"})
     @Operation(summary = "Remove label from task")
     public ResponseEntity<ApiResponse<Void>> removeLabelFromTask(
-            @PathVariable Long boardId,
-            @PathVariable Long taskId,
-            @PathVariable Long labelId) {
-        labelService.removeLabelFromTask(boardId, taskId, labelId);
+            @PathVariable String boardId,
+            @PathVariable String taskId,
+            @PathVariable String labelId) {
+        Long parsedBoardId = IdFormatter.parseId(boardId);
+        Long parsedTaskId = IdFormatter.parseId(taskId);
+        Long parsedLabelId = IdFormatter.parseId(labelId);
+        labelService.removeLabelFromTask(parsedBoardId, parsedTaskId, parsedLabelId);
         return ResponseEntity.ok(ApiResponse.success("Label deleted successfully", null));
     }
-
 }
