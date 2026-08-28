@@ -587,7 +587,7 @@ export function TaskDetailPanel({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs uppercase tracking-[0.22em] text-[#53627f]">
-                            TF-{String(currentTask.id).padStart(4, "0")}
+                            {currentTask.formattedId || `T${String(currentTask.id).padStart(5, "0")}`}
                           </span>
                           <span
                             className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold"
