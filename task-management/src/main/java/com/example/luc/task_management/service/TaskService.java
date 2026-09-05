@@ -28,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +57,7 @@ public class TaskService {
     // ─────────────────────────────────────────
     // TẠO TASK – Dùng Factory Pattern
     // ─────────────────────────────────────────
+    @CacheEvict(value = "board_tasks", allEntries = true)
     @Transactional
     public TaskResponse createTask(Long boardId, CreateTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
@@ -131,6 +134,7 @@ public class TaskService {
 
 
 
+    @Cacheable(value = "board_tasks", key = "#boardId + ':' + #sortBy")
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByBoard(Long boardId, String sortBy) {
         User currentUser = SecurityUtils.getCurrentUser();
@@ -221,6 +225,7 @@ public class TaskService {
         return TaskResponse.fromEntity(task, product.getColor());
     }
 
+    @CacheEvict(value = "board_tasks", allEntries = true)
     @Transactional
     public TaskResponse updateTask(Long boardId, Long taskId, UpdateTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
@@ -267,6 +272,7 @@ public class TaskService {
         return response;
     }
 
+    @CacheEvict(value = "board_tasks", allEntries = true)
     @Transactional
     public TaskResponse moveTask(Long boardId, Long taskId, MoveTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
@@ -310,6 +316,7 @@ public class TaskService {
     }
 
     // Gán người thực hiện task
+    @CacheEvict(value = "board_tasks", allEntries = true)
     @Transactional
     public TaskResponse assignTask(Long boardId, Long taskId, AssignTaskRequest request) {
         User currentUser = SecurityUtils.getCurrentUser();
@@ -353,6 +360,7 @@ public class TaskService {
         return response;
     }
 
+    @CacheEvict(value = "board_tasks", allEntries = true)
     @Transactional
     public void deleteTask (Long boardId, Long taskId) {
         User currentUser = SecurityUtils.getCurrentUser();
