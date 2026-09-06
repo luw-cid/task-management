@@ -71,6 +71,11 @@ public class Task extends BaseEntity{
     @Column(nullable = false)
     private Integer position = 0;
 
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     // Relationships
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL,
             fetch = FetchType.LAZY, orphanRemoval = true)

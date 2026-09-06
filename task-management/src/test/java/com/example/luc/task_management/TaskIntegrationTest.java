@@ -153,4 +153,84 @@ public class TaskIntegrationTest extends BaseIntegrationTest {
         // 5. Kiểm tra Cache: Key phải bị xóa (Evicted) để chống dữ liệu cũ!
         assertThat(cache.get(cacheKey)).isNull(); // CACHE INVALIDATION THÀNH CÔNG!
     }
+
+    @Test
+    void shouldHandleOptimisticLockingOnConcurrentUpdates() {
+        // 1. Tạo User và cấp quyền SecurityContext
+        User user = userRepository.save(User.builder()
+                .email("optimistic_tester@example.com")
+                .password("encoded_pass")
+                .fullName("Lock Tester")
+                .role(com.example.luc.task_management.enums.SystemRole.USER)
+                .isActive(true)
+                .build());
+
+        com.example.luc.task_management.security.CustomUserDetails userDetails =
+                new com.example.luc.task_management.security.CustomUserDetails(user);
+        org.springframework.security.core.Authentication auth =
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        // 2. Tạo Board, BoardMember, Column và Task
+        Board board = boardRepository.save(Board.builder()
+                .name("Lock Board")
+                .owner(user)
+                .isArchived(false)
+                .build());
+
+        boardMemberRepository.save(com.example.luc.task_management.entity.mysql.BoardMember.builder()
+                .board(board)
+                .user(user)
+                .role(com.example.luc.task_management.enums.BoardRole.BOARD_ADMIN)
+                .build());
+
+        ColumnEntity column = columnRepository.save(ColumnEntity.builder()
+                .name("TODO")
+                .board(board)
+                .position(0)
+                .build());
+
+        Task task = taskRepository.save(Task.builder()
+                .title("Original Title")
+                .board(board)
+                .column(column)
+                .reporter(user)
+                .type(TaskType.FEATURE)
+                .priority(TaskPriority.MEDIUM)
+                .status(TaskStatus.TODO)
+                .position(0)
+                .build());
+
+        // Kiểm tra version ban đầu là 0
+        assertThat(task.getVersion()).isEqualTo(0L);
+
+        // 3. User A cập nhật Task với version = 0 -> Thành công, version tăng lên 1
+        com.example.luc.task_management.dto.request.task.UpdateTaskRequest userARequest =
+                new com.example.luc.task_management.dto.request.task.UpdateTaskRequest();
+        userARequest.setTitle("User A Updated Title");
+        userARequest.setVersion(0L);
+
+        com.example.luc.task_management.dto.response.TaskResponse responseA =
+                taskService.updateTask(board.getId(), task.getId(), userARequest);
+
+        assertThat(responseA.getVersion()).isEqualTo(1L);
+        assertThat(responseA.getTitle()).isEqualTo("User A Updated Title");
+
+        // 4. User B cố gắng cập nhật Task nhưng vẫn mang version cũ = 0L -> Phải bị chặn bởi Optimistic Lock!
+        com.example.luc.task_management.dto.request.task.UpdateTaskRequest userBRequest =
+                new com.example.luc.task_management.dto.request.task.UpdateTaskRequest();
+        userBRequest.setTitle("User B Stale Title");
+        userBRequest.setVersion(0L); // Client B mang version cũ
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.orm.ObjectOptimisticLockingFailureException.class,
+                () -> taskService.updateTask(board.getId(), task.getId(), userBRequest)
+        );
+
+        // 5. Xác nhận dữ liệu của User A vẫn an toàn trong database, không bị User B ghi đè
+        Task currentTask = taskRepository.findById(task.getId()).orElseThrow();
+        assertThat(currentTask.getTitle()).isEqualTo("User A Updated Title");
+        assertThat(currentTask.getVersion()).isEqualTo(1L);
+    }
 }

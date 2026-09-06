@@ -38,6 +38,7 @@ public enum ErrorCode {
     CANNOT_DELETE_LAST_COLUMN(HttpStatus.BAD_REQUEST, "Board must have at least one column"),
 
     // Common
+    TASK_CONCURRENT_UPDATE(HttpStatus.CONFLICT, "The task has been updated by another user. Please refresh to get the latest data."),
     BAD_REQUEST         (HttpStatus.BAD_REQUEST,   "Invalid request"),
     INTERNAL_ERROR      (HttpStatus.INTERNAL_SERVER_ERROR, "System error");
 

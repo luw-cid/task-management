@@ -234,6 +234,10 @@ public class TaskService {
         Task task = taskRepository.findByIdAndBoardId(taskId, boardId)
                 .orElseThrow(() -> new AppException(ErrorCode.TASK_NOT_FOUND));
 
+        if (request.getVersion() != null && !task.getVersion().equals(request.getVersion())) {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(Task.class, taskId);
+        }
+
         UpdateTaskCommand command = new UpdateTaskCommand(
                 task,
                 request.getTitle(),
@@ -248,7 +252,7 @@ public class TaskService {
             task.setDeadline(request.getDeadline());
         }
 
-        taskRepository.save(task);
+        task = taskRepository.saveAndFlush(task);
 
         TaskProduct product = TaskFactory.createTask(task.getType());
         TaskResponse response = TaskResponse.fromEntity(task, product.getColor());
@@ -292,7 +296,7 @@ public class TaskService {
 
         commandInvoker.execute(command, task, currentUser, ActivityAction.TASK_MOVED);
 
-        taskRepository.save(task);
+        task = taskRepository.saveAndFlush(task);
 
         TaskProduct product = TaskFactory.createTask(task.getType());
         TaskResponse response = TaskResponse.fromEntity(task, product.getColor());
@@ -334,7 +338,7 @@ public class TaskService {
         AssignTaskCommand command = new AssignTaskCommand(task, newAssignee);
         commandInvoker.execute(command, task, currentUser, ActivityAction.TASK_ASSIGNED);
 
-        taskRepository.save(task);
+        task = taskRepository.saveAndFlush(task);
 
         TaskProduct product = TaskFactory.createTask(task.getType());
         TaskResponse response = TaskResponse.fromEntity(task, product.getColor());

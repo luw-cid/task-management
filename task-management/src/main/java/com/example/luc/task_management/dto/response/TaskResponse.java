@@ -40,6 +40,7 @@ public class TaskResponse {
     private LocalDateTime deadline;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long version;
 
     public static TaskResponse fromEntity(Task task, String color) {
         Long colId = task.getColumn() != null ? task.getColumn().getId() : null;
@@ -81,6 +82,7 @@ public class TaskResponse {
                 .deadline(task.getDeadline())
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
+                .version(task.getVersion())
                 .build();
     }
 }

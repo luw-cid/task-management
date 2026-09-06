@@ -44,6 +44,18 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    // Lỗi xung đột phiên bản – Optimistic Locking (2 người cùng sửa một Task)
+    @ExceptionHandler({org.springframework.orm.ObjectOptimisticLockingFailureException.class, jakarta.persistence.OptimisticLockException.class})
+    public ResponseEntity<Map<String, Object>> handleOptimisticLockException(Exception ex) {
+        log.warn("Optimistic lock conflict: {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.TASK_CONCURRENT_UPDATE.getHttpStatus())
+                .body(Map.of(
+                        "status", ErrorCode.TASK_CONCURRENT_UPDATE.getHttpStatus().value(),
+                        "message", ErrorCode.TASK_CONCURRENT_UPDATE.getMessage()
+                ));
+    }
+
     @ExceptionHandler({org.springframework.security.access.AccessDeniedException.class, org.springframework.security.core.AuthenticationException.class})
     public ResponseEntity<Map<String, Object>> handleSecurityException(Exception ex) {
         log.error("Security exception: {}", ex.getMessage());

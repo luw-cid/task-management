@@ -13,4 +13,5 @@ public class UpdateTaskRequest {
     private String description;
     private TaskPriority priority;
     private LocalDateTime deadline;
+    private Long version;
 }
